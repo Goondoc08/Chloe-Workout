@@ -219,7 +219,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
     <div class="card-title">Today's Body Battery</div>
     <div class="bb-input-wrap">
       <div class="bb-display" id="bb-display">72</div>
-      <input type="range" class="bb-slider" id="bb-slider" min="0" max="100" value="72">
+      <input type="range" class="bb-slider" id="bb-slider" min="0" max="100" value="72" id="bb-slider">
       <div class="bb-labels"><span>0 · Empty</span><span>50 · Half</span><span>100 · Full</span></div>
       <div class="bb-zone-badge" id="bb-zone-badge">High Energy</div>
     </div>
@@ -929,6 +929,7 @@ function updateBBDisplay(bb) {
 }
 
 document.getElementById('bb-slider').addEventListener('input', function() {
+  localStorage.setItem('wt_bb', this.value);
   updateBBDisplay(parseInt(this.value));
   renderHome();
 });
@@ -1234,6 +1235,10 @@ document.getElementById('modal-overlay').addEventListener('click', function(e) {
 })();
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
+
+// Restore saved BB value before first render
+const savedBB = localStorage.getItem('wt_bb');
+if (savedBB) document.getElementById('bb-slider').value = savedBB;
 
 renderHome();
 renderGuide();
