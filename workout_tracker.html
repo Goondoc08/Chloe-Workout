@@ -845,7 +845,7 @@ function renderHome() {
   document.getElementById('home-date').textContent = now.toLocaleDateString('en-US', {weekday:'long', month:'long', day:'numeric'});
 
   // Cycle day calculation — anchor: May 25 2025 = Day 1 (current cycle start)
-  const anchor = new Date(2025, 4, 25); // May 25 2025, local time, no ambiguity
+  const anchor = new Date(2026, 4, 25); // May 25 2026, local time, no ambiguity
   const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const daysSinceAnchor = Math.round((todayMidnight - anchor) / 86400000);
   const cycleIndex = daysSinceAnchor % 6; // always positive from a past anchor
