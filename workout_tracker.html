@@ -765,6 +765,7 @@ function colHeadClass(head) {
 // ─── RENDER HELPERS ───────────────────────────────────────────────────────────
 
 function renderWorkoutPage(day, bb, fromPage) {
+  prevPage = fromPage;
   const tabIdx = getTabIndex(day.id, bb);
   const typeCls = day.type === 'shift' ? 'type-shift' : day.type === 'off' ? 'type-off' : 'type-rest';
 
@@ -1037,8 +1038,9 @@ function renderHistory() {
 
 const PAGE_ORDER = ['home', 'guide', 'history'];
 let currentPage = 'home';
+let prevPage = 'home'; // tracks where workout detail was opened from
 
-function showPage(name) {
+function showPage(name, pushState = true) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('page-'+name).classList.add('active');
@@ -1046,8 +1048,29 @@ function showPage(name) {
     currentPage = name;
     document.getElementById('nav-'+name)?.classList.add('active');
   }
+  if (pushState) history.pushState({page: name}, '', '');
   window.scrollTo(0,0);
 }
+
+// Android back button / browser back
+window.addEventListener('popstate', function() {
+  if (currentPage === 'workout' || document.getElementById('page-workout').classList.contains('active')) {
+    // Back from workout detail → return to wherever it was opened from
+    showPage(prevPage, false);
+  } else if (document.getElementById('modal-overlay').classList.contains('open')) {
+    // Back closes the modal
+    closeModal();
+    history.pushState({page: currentPage}, '', '');
+  } else {
+    const idx = PAGE_ORDER.indexOf(currentPage);
+    if (idx > 0) {
+      showPage(PAGE_ORDER[idx - 1], false);
+    } else {
+      // Already on home — let the app close naturally
+      history.back();
+    }
+  }
+});
 
 // ─── SWIPE NAVIGATION ─────────────────────────────────────────────────────────
 (function() {
@@ -1215,6 +1238,8 @@ document.getElementById('modal-overlay').addEventListener('click', function(e) {
 renderHome();
 renderGuide();
 renderHistory();
+// Seed initial history state so back button has somewhere to go
+history.replaceState({page: 'home'}, '', '');
 </script>
 </body>
 </html>
