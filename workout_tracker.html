@@ -1,0 +1,1220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Workout">
+<title>Workout Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  /* Palette */
+  --p-purple:#B85FB6;   /* yoga / mobility */
+  --p-blue:#5F95B8;     /* cardio / pool / warm-up headers */
+  --p-green:#7DB85F;    /* lift days / main lift headers */
+  --p-tan:#B8935F;      /* on shift / scaled headers */
+  --p-mauve:#635462;    /* rest days / cool-down headers */
+  --p-dark:#2C3338;     /* app background */
+
+  /* Derived tints (dark theme) */
+  --purple-bg:rgba(184,95,182,.18);--purple-border:rgba(184,95,182,.45);
+  --blue-bg:rgba(95,149,184,.18);  --blue-border:rgba(95,149,184,.45);
+  --green-bg:rgba(125,184,95,.18); --green-border:rgba(125,184,95,.45);
+  --tan-bg:rgba(184,147,95,.18);   --tan-border:rgba(184,147,95,.45);
+  --mauve-bg:rgba(99,84,98,.35);   --mauve-border:rgba(99,84,98,.6);
+
+  --text:#f0eeea;--text2:#c8c4be;--text3:#8a8680;
+  --border:rgba(255,255,255,.1);
+  --card:#363d42;--card2:#3f474d;--bg:#2C3338;
+  --radius:14px;--font:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;padding-bottom:80px}
+
+/* NAV */
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;background:#2a3035;border-top:1px solid var(--border);display:flex;z-index:100;padding-bottom:env(safe-area-inset-bottom)}
+.nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 0;font-size:10px;font-weight:500;color:var(--text3);border:none;background:none;cursor:pointer;letter-spacing:.02em;text-transform:uppercase}
+.nav-btn.active{color:var(--p-green)}
+.nav-btn svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+/* PAGES */
+.page{display:none;padding:16px;max-width:520px;margin:0 auto;animation:pageIn .22s ease}
+.page.active{display:block}
+@keyframes pageIn{from{opacity:0;transform:translateX(18px)}to{opacity:1;transform:translateX(0)}}
+
+/* HEADER */
+.page-header{margin-bottom:20px}
+.page-title{font-size:22px;font-weight:600;color:var(--text)}
+.page-sub{font-size:13px;color:var(--text3);margin-top:3px}
+
+/* CARD */
+.card{background:var(--card);border-radius:var(--radius);border:1px solid var(--border);padding:16px;margin-bottom:12px}
+.card-title{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);margin-bottom:12px}
+
+/* BB INPUT */
+.bb-input-wrap{display:flex;flex-direction:column;align-items:center;gap:12px;padding:8px 0}
+.bb-display{font-size:72px;font-weight:700;line-height:1;color:var(--text);transition:color .2s}
+.bb-display.low{color:#B85FB6}
+.bb-display.med{color:#B8935F}
+.bb-display.high{color:#7DB85F}
+.bb-slider{width:100%;-webkit-appearance:none;height:8px;border-radius:99px;background:linear-gradient(to right,#B85FB6 0%,#B8935F 40%,#7DB85F 75%,#5F95B8 100%);outline:none;cursor:pointer}
+.bb-slider::-webkit-slider-thumb{-webkit-appearance:none;width:28px;height:28px;border-radius:50%;background:#f0eeea;border:3px solid #8a8680;box-shadow:0 1px 4px rgba(0,0,0,.4);cursor:pointer}
+.bb-labels{display:flex;justify-content:space-between;width:100%;font-size:11px;color:var(--text3);font-weight:500}
+.bb-zone-badge{padding:5px 14px;border-radius:99px;font-size:13px;font-weight:600}
+
+/* RECOMMENDATION */
+.rec-card{border-radius:var(--radius);padding:16px;margin-bottom:12px}
+.rec-card.shift{background:var(--tan-bg);border:1px solid var(--tan-border)}
+.rec-card.off{background:var(--green-bg);border:1px solid var(--green-border)}
+.rec-card.rest{background:var(--mauve-bg);border:1px solid var(--mauve-border)}
+.rec-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;opacity:.7;margin-bottom:4px}
+.rec-title{font-size:20px;font-weight:700;margin-bottom:4px}
+.rec-meta{font-size:13px;opacity:.75;margin-bottom:12px}
+.rec-reason{font-size:12px;opacity:.65;line-height:1.5;margin-bottom:14px;font-style:italic}
+.btn{display:inline-flex;align-items:center;justify-content:center;padding:12px 20px;border-radius:10px;font-size:15px;font-weight:600;border:none;cursor:pointer;width:100%;gap:8px;transition:opacity .15s}
+.btn:active{opacity:.75}
+.btn-primary{background:var(--p-green);color:#fff}
+.btn-amber{background:var(--p-tan);color:#fff}
+.btn-gray{background:var(--p-mauve);color:#fff}
+.btn-outline{background:transparent;border:1.5px solid var(--border);color:var(--text)}
+.btn-sm{padding:8px 14px;font-size:13px;width:auto;border-radius:8px}
+
+/* HISTORY */
+.history-item{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)}
+.history-item:last-child{border-bottom:none}
+.history-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.history-info{flex:1}
+.history-name{font-size:14px;font-weight:500}
+.history-date{font-size:12px;color:var(--text3);margin-top:1px}
+.history-bb{font-size:12px;font-weight:600;padding:2px 8px;border-radius:99px;background:var(--green-bg);color:var(--p-green)}
+.empty-state{text-align:center;padding:32px 16px;color:var(--text3)}
+.empty-state svg{opacity:.3;margin-bottom:12px}
+.empty-state p{font-size:14px}
+
+/* WORKOUT VIEW */
+.back-btn{display:flex;align-items:center;gap:6px;font-size:14px;font-weight:500;color:var(--p-green);background:none;border:none;cursor:pointer;padding:0;margin-bottom:16px}
+.workout-header{margin-bottom:16px}
+.workout-title{font-size:24px;font-weight:700;margin-bottom:4px}
+.workout-meta{font-size:13px;color:var(--text3)}
+.workout-dur{font-size:13px;color:var(--text3);font-weight:500}
+.bb-tab-bar{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap}
+.wbtab{font-size:12px;padding:6px 14px;border-radius:99px;border:1px solid var(--border);cursor:pointer;color:var(--text2);background:var(--card2);font-weight:500;transition:all .15s}
+.wbtab.active.type-shift{background:var(--tan-bg);color:#e8b87a;border-color:var(--tan-border)}
+.wbtab.active.type-off{background:var(--green-bg);color:#9fd475;border-color:var(--green-border)}
+.wbtab.active.type-rest{background:var(--mauve-bg);color:#a898a6;border-color:var(--mauve-border)}
+.section-panel{display:none}
+.section-panel.active{display:block}
+.section-group{margin-bottom:14px}
+
+/* Section header bar */
+.col-head{
+  font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
+  padding:6px 10px;margin-bottom:8px;border-radius:6px;
+  display:flex;align-items:center;gap:7px;
+}
+.col-head::before{content:'';width:3px;height:14px;border-radius:2px;flex-shrink:0}
+.col-head.ch-warmup{background:rgba(95,149,184,.15);color:#5F95B8;}
+.col-head.ch-warmup::before{background:#5F95B8}
+.col-head.ch-main{background:rgba(125,184,95,.15);color:#7DB85F;}
+.col-head.ch-main::before{background:#7DB85F}
+.col-head.ch-cooldown{background:rgba(184,95,182,.15);color:#B85FB6;}
+.col-head.ch-cooldown::before{background:#B85FB6}
+.col-head.ch-scaled{background:rgba(184,147,95,.15);color:#B8935F;}
+.col-head.ch-scaled::before{background:#B8935F}
+.col-head.ch-pool{background:rgba(95,149,184,.15);color:#5F95B8;}
+.col-head.ch-pool::before{background:#5F95B8}
+.col-head.ch-breathwork{background:rgba(184,95,182,.15);color:#B85FB6;}
+.col-head.ch-breathwork::before{background:#B85FB6}
+.col-head.ch-default{background:rgba(99,84,98,.25);color:#a898a6;}
+.col-head.ch-default::before{background:#635462}
+
+.ex-item{padding:8px 0;border-bottom:1px solid var(--border)}
+.ex-item:last-child{border-bottom:none}
+.ex-name{font-size:14px;color:var(--text);font-weight:500}
+.ex-detail{font-size:12px;color:var(--text3);margin-top:2px}
+.note-box{background:rgba(255,255,255,.06);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--text2);line-height:1.6;margin-top:10px;border:1px solid var(--border)}
+.note-box strong{color:var(--text);font-weight:600}
+.pill{display:inline-block;font-size:11px;padding:3px 10px;border-radius:99px;font-weight:600;margin-top:10px}
+.pill-green{background:var(--green-bg);color:#9fd475}
+.pill-amber{background:var(--tan-bg);color:#e8b87a}
+.pill-gray{background:var(--mauve-bg);color:#a898a6}
+.pill-purple{background:var(--purple-bg);color:#d49fd2}
+
+/* LOG COMPLETE */
+.complete-bar{position:sticky;bottom:calc(64px + env(safe-area-inset-bottom));left:0;right:0;padding:10px 16px;background:rgba(44,51,56,.95);backdrop-filter:blur(8px);border-top:1px solid var(--border);max-width:520px;margin:0 auto}
+
+/* STATS */
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;text-align:center}
+.stat-num{font-size:32px;font-weight:700;color:var(--p-green)}
+.stat-label{font-size:11px;color:var(--text3);font-weight:500;text-transform:uppercase;letter-spacing:.04em;margin-top:2px}
+.streak-card{background:linear-gradient(135deg,#4a3a4a,#7a4e79);border-radius:var(--radius);padding:18px;color:#fff;margin-bottom:12px;text-align:center}
+.streak-num{font-size:48px;font-weight:800;line-height:1}
+.streak-label{font-size:14px;opacity:.8;margin-top:4px}
+.quote-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px 18px;margin-bottom:12px;border-left:3px solid var(--p-blue)}
+.quote-text{font-size:14px;color:var(--text2);line-height:1.6;font-style:italic}
+.cycle-badge{border-radius:10px;padding:8px 12px;text-align:right;flex-shrink:0;min-width:90px}
+.cycle-badge .cycle-day{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;opacity:.8;margin-bottom:2px}
+.cycle-badge .cycle-name{font-size:13px;font-weight:600;line-height:1.3}
+.cycle-badge .cycle-type{font-size:11px;opacity:.7;margin-top:2px}
+
+/* LEGEND */
+.legend{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px}
+.leg{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text2)}
+.leg-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+
+/* DAY LIST */
+.day-list-item{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border);cursor:pointer}
+.day-list-item:last-child{border-bottom:none}
+.day-list-item:active{opacity:.7}
+.day-list-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
+.day-list-info{flex:1}
+.day-list-name{font-size:15px;font-weight:500}
+.day-list-meta{font-size:12px;color:var(--text3);margin-top:2px}
+.day-list-dur{font-size:12px;color:var(--text3)}
+.day-list-chevron{color:var(--text3)}
+
+/* MOVEMENT MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .25s;backdrop-filter:blur(4px)}
+.modal-overlay.open{opacity:1;pointer-events:all}
+.modal-card{background:#363d42;border-radius:22px 22px 0 0;width:100%;max-width:520px;padding:0 0 32px;border:1px solid rgba(255,255,255,.12);border-bottom:none;transform:translateY(100%);transition:transform .3s cubic-bezier(.32,1,.23,1);max-height:88vh;overflow-y:auto}
+.modal-overlay.open .modal-card{transform:translateY(0)}
+.modal-drag-handle{width:36px;height:4px;border-radius:2px;background:rgba(255,255,255,.2);margin:12px auto 0}
+.modal-header{display:flex;align-items:center;justify-content:space-between;padding:14px 20px 10px}
+.modal-title{font-size:17px;font-weight:600;color:var(--text)}
+.modal-close{background:rgba(255,255,255,.1);border:none;color:var(--text2);width:30px;height:30px;border-radius:50%;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.modal-media{margin:0 16px;border-radius:14px;overflow:hidden;border:2px solid rgba(255,255,255,.1);background:#2a3035;min-height:200px;display:flex;align-items:center;justify-content:center}
+.modal-media img{width:100%;height:auto;display:block;border-radius:12px}
+.modal-media .media-placeholder{padding:40px 20px;text-align:center;color:var(--text3);font-size:13px}
+.modal-note{margin:12px 20px 0;font-size:12px;color:var(--text3);line-height:1.6;padding:10px 12px;background:rgba(255,255,255,.05);border-radius:10px;border-left:3px solid var(--p-blue)}
+
+/* REFERENCE BUTTON */
+.ref-btn{display:inline-flex;align-items:center;gap:5px;margin-top:5px;font-size:11px;font-weight:600;color:var(--p-blue);background:rgba(95,149,184,.12);border:1px solid rgba(95,149,184,.3);border-radius:6px;padding:3px 9px;cursor:pointer;letter-spacing:.02em}
+.ref-btn:active{opacity:.7}
+
+/* TOAST */
+.toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(20px);background:#f0eeea;color:#2C3338;padding:10px 18px;border-radius:10px;font-size:14px;font-weight:600;opacity:0;transition:all .3s;pointer-events:none;white-space:nowrap;z-index:999}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+</style>
+</head>
+<body>
+
+<!-- PAGES -->
+<div id="page-home" class="page active">
+  <div class="page-header">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
+      <div>
+        <div class="page-title" id="home-greeting"></div>
+        <div class="page-sub" id="home-date"></div>
+      </div>
+      <div class="cycle-badge" id="cycle-badge"></div>
+    </div>
+  </div>
+
+  <!-- BB INPUT -->
+  <div class="card">
+    <div class="card-title">Today's Body Battery</div>
+    <div class="bb-input-wrap">
+      <div class="bb-display" id="bb-display">72</div>
+      <input type="range" class="bb-slider" id="bb-slider" min="0" max="100" value="72">
+      <div class="bb-labels"><span>0 · Empty</span><span>50 · Half</span><span>100 · Full</span></div>
+      <div class="bb-zone-badge" id="bb-zone-badge">High Energy</div>
+    </div>
+  </div>
+
+  <!-- QUOTE -->
+  <div class="quote-card" id="quote-card">
+    <div class="quote-text" id="quote-text"></div>
+  </div>
+
+  <!-- RECOMMENDATION -->
+  <div id="rec-area"></div>
+
+  <!-- RECENT HISTORY PREVIEW -->
+  <div class="card" id="recent-preview">
+    <div class="card-title">Recent workouts</div>
+    <div id="recent-list-preview"></div>
+  </div>
+</div>
+
+<div id="page-workout" class="page">
+  <!-- Workout detail view rendered dynamically -->
+</div>
+
+<div id="page-guide" class="page">
+  <div class="page-header">
+    <div class="page-title">All Workouts</div>
+    <div class="page-sub">6-day cycle · tap any day to view</div>
+  </div>
+  <div class="legend">
+    <div class="leg"><div class="leg-dot" style="background:#7DB85F"></div>Lift</div>
+    <div class="leg"><div class="leg-dot" style="background:#5F95B8"></div>Cardio / pool</div>
+    <div class="leg"><div class="leg-dot" style="background:#B85FB6"></div>Yoga / mobility</div>
+    <div class="leg"><div class="leg-dot" style="background:#B8935F"></div>On shift</div>
+    <div class="leg"><div class="leg-dot" style="background:#635462"></div>Rest</div>
+  </div>
+  <div class="card" style="padding:0 16px">
+    <div id="day-list"></div>
+  </div>
+</div>
+
+<div id="page-history" class="page">
+  <div class="page-header">
+    <div class="page-title">History</div>
+    <div class="page-sub">All logged workouts</div>
+  </div>
+  <div class="streak-card">
+    <div class="streak-num" id="streak-num">0</div>
+    <div class="streak-label">day streak 🔥</div>
+  </div>
+  <div class="stats-grid">
+    <div class="stat-card"><div class="stat-num" id="stat-total">0</div><div class="stat-label">Total workouts</div></div>
+    <div class="stat-card"><div class="stat-num" id="stat-week">0</div><div class="stat-label">This week</div></div>
+  </div>
+  <div class="card">
+    <div class="card-title">Log</div>
+    <div id="history-list"></div>
+  </div>
+</div>
+
+<!-- MOVEMENT REFERENCE MODAL -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal-card" id="modal-card">
+    <div class="modal-drag-handle"></div>
+    <div class="modal-header">
+      <div class="modal-title" id="modal-title"></div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-media" id="modal-media"></div>
+    <div class="modal-note" id="modal-note"></div>
+  </div>
+</div>
+
+<!-- BOTTOM NAV -->
+<nav class="bottom-nav">
+  <button class="nav-btn active" onclick="showPage('home')" id="nav-home">
+    <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+    Today
+  </button>
+  <button class="nav-btn" onclick="showPage('guide')" id="nav-guide">
+    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+    Guide
+  </button>
+  <button class="nav-btn" onclick="showPage('history')" id="nav-history">
+    <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+    History
+  </button>
+</nav>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ─── DATA ────────────────────────────────────────────────────────────────────
+
+const DAYS = [
+  {
+    id:'d1', label:'Day 1 · on shift', type:'shift', color:'#B8935F',
+    name:'Lift A', badge:'primary lift',
+    meta:'Do on whichever shift day energy is better · full gym · no pool',
+    dur:'40–50 min',
+    tabs:['BB < 30 · scaled','BB 30–50 · default','BB 50+ · full'],
+    sections:[
+      {
+        groups:[
+          {head:'Scaled session · <30 min', items:[
+            {n:'Banded clamshells',d:'10 each side'},
+            {n:'Goblet squat — light',d:'2 × 10 · bodyweight ok'},
+            {n:'DB row',d:'2 × 10 · light'},
+            {n:'Kegels + stretch',d:'10-sec × 10 · always'},
+          ]},
+          {head:'Skip or defer', items:[
+            {n:'Main lift complex',d:''},
+            {n:'Accessories',d:''},
+          ], note:{strong:'If BB under 20:',text:' skip lift entirely, do movement breaks only. Come back to Lift A on Day 2 if energy recovers.'}},
+        ], pill:{text:'RPE 3–4',cls:'pill-amber'}
+      },
+      {
+        groups:[
+          {head:'Warm-up', items:[
+            {n:'5 min bike',d:'Easy warm-up'},
+            {n:'Hip circles × 10',d:'Each direction'},
+            {n:'Banded clamshells',d:'10 each side'},
+            {n:'Pelvic tilts',d:'2 × 10 · standing or against wall'},
+          ]},
+          {head:'Main lifts', items:[
+            {n:'Goblet squat',d:'3 × 12 · moderate'},
+            {n:'DB Romanian deadlift',d:'3 × 10 · hinge focus'},
+            {n:'Single-leg press / step-up',d:'3 × 10 each side'},
+            {n:'Seated cable or DB row',d:'3 × 12'},
+          ]},
+          {head:'Cool-down', items:[
+            {n:'Kegels · no exceptions',d:'10-sec × 10'},
+            {n:'Cat-cow + child\'s pose',d:'10 reps / 30-sec hold'},
+            {n:'Hip flexor stretch',d:'30 sec each side'},
+            {n:'Belly breathing',d:'5 breaths · pelvic floor release'},
+          ]},
+        ], pill:{text:'RPE 5–6',cls:'pill-green'}
+      },
+      {
+        groups:[
+          {head:'Warm-up', items:[
+            {n:'5 min bike or row',d:'Easy warm-up'},
+            {n:'Hip circles × 10',d:'Each direction'},
+            {n:'Banded clamshells',d:'10 each side'},
+            {n:'Pelvic tilts',d:'2 × 10 · standing or against wall'},
+          ]},
+          {head:'Main lifts + accessories', items:[
+            {n:'Goblet squat',d:'3 × 12 · moderate–heavy'},
+            {n:'DB Romanian deadlift',d:'3 × 10'},
+            {n:'Single-leg press / step-up',d:'3 × 10 each side'},
+            {n:'Seated cable or DB row',d:'3 × 12'},
+            {n:'DB overhead press (seated)',d:'2 × 12'},
+            {n:'Pallof press',d:'2 × 10 each side'},
+          ]},
+          {head:'Cool-down', items:[
+            {n:'Kegels',d:'10-sec × 10'},
+            {n:'Cat-cow + child\'s pose',d:'Full release'},
+            {n:'Hip flexor stretch',d:'30 sec each side'},
+            {n:'Belly breathing',d:'5 breaths'},
+          ]},
+        ], pill:{text:'RPE 5–6',cls:'pill-green'}
+      }
+    ]
+  },
+  {
+    id:'d2', label:'Day 2 · on shift', type:'shift', color:'#B8935F',
+    name:'Recovery cardio',
+    meta:'No lifting · no pool · bike or treadmill only · scale to body battery',
+    dur:'20–35 min',
+    tabs:['BB < 30 · breaks only','BB 30–50 · default','BB 50+ · incline walk'],
+    sections:[
+      {
+        groups:[
+          {head:'Movement breaks only', items:[
+            {n:'5–10 min walk every 2–3 hrs',d:'Hallways, parking lot'},
+            {n:'Standing desk stretches',d:'Shoulder rolls, calf raises'},
+            {n:'Seated hip circles',d:'5 each direction'},
+            {n:'Kegels · daily set',d:'10-sec × 10'},
+          ], note:{strong:'No structured cardio when BB is this low.',text:' Post-shift overnight calls drain reserves — moving through the shift is enough. Rest and eat.'}},
+        ], pill:{text:'Movement only',cls:'pill-amber'}
+      },
+      {
+        groups:[
+          {head:'Easy bike · 20–25 min', items:[
+            {n:'5 min easy warm-up spin',d:'Low resistance'},
+            {n:'15–20 min steady state',d:'Conversational pace · ~60% max HR'},
+            {n:'5 min cool-down spin',d:''},
+            {n:'Kegels after',d:'10-sec × 10'},
+          ], note:{strong:'',text:'No lifting today regardless. Two consecutive lifting days on shift is too much load stacked with shift fatigue.'}},
+        ], pill:{text:'HR < 135 · conversational',cls:'pill-amber'}
+      },
+      {
+        groups:[
+          {head:'Incline treadmill · 25–30 min', items:[
+            {n:'5 min flat warm-up walk',d:''},
+            {n:'20 min at 4–6% incline',d:'Comfortable pace · no running'},
+            {n:'5 min flat cool-down',d:''},
+            {n:'Kegels after',d:'10-sec × 10'},
+          ], note:{strong:'BB 50+',text:' means you recovered well overnight. Incline walk is a solid moderate stimulus without taxing the system.'}},
+        ], pill:{text:'HR < 140 · ~65% max',cls:'pill-amber'}
+      }
+    ]
+  },
+  {
+    id:'d3', label:'Day 3 · post-shift', type:'off', color:'#635462',
+    name:'Rest + optional movement',
+    meta:'Sleep is the workout · pool available if body battery allows',
+    dur:'Rest day',
+    tabs:['BB < 40 · full rest','BB 40–60 · light movement','BB 60+ · pool / walk'],
+    sections:[
+      {
+        groups:[
+          {head:'Full rest — no exceptions', items:[
+            {n:'Sleep · as much as possible',d:'Priority one always'},
+            {n:'Hydrate + eat well',d:''},
+            {n:'Kegels · daily set',d:'10-sec × 10 · even today'},
+            {n:'Light stretching in bed',d:'Cat-cow, hip circles if comfortable'},
+          ], note:{strong:'Under 40 = full rest only.',text:' The 48-hour shift depleted reserves. Add pregnancy and the body needs passive recovery.'}},
+        ], pill:{text:'Full rest',cls:'pill-gray'}
+      },
+      {
+        groups:[
+          {head:'Light movement ok', items:[
+            {n:'20–30 min easy walk',d:'Flat, shaded, comfortable pace'},
+            {n:'Light stretching',d:'Hip flexors, upper back, calves'},
+            {n:'Kegels',d:'10-sec × 10'},
+          ], note:{strong:'',text:'Still a rest day. Walk and stretch are active recovery — not training. Sleep still comes first.'}},
+        ], pill:{text:'HR < 120',cls:'pill-gray'}
+      },
+      {
+        groups:[
+          {head:'Pool or walk — gentle', items:[
+            {n:'Water walking · 20 min',d:'Shallow end · no laps needed'},
+            {n:'Easy lap swim',d:'500m max · no pace pressure'},
+            {n:'OR: 30 min easy walk',d:'Shaded, flat'},
+            {n:'Kegels after',d:'10-sec × 10'},
+          ], note:{strong:'BB 60+ post-shift is a good sign.',text:' Pool is the best option — buoyancy provides active recovery without taxing the system.'}},
+        ], pill:{text:'HR < 120',cls:'pill-gray'}
+      }
+    ]
+  },
+  {
+    id:'d4', label:'Day 4 · off shift', type:'off', color:'#7DB85F',
+    name:'Lift B', badge:'key day',
+    meta:'Full gym + pool available · most important session of the cycle',
+    dur:'40–50 min',
+    tabs:['BB < 40 · scaled','BB 40–60 · default','BB 60+ · full'],
+    sections:[
+      {
+        groups:[
+          {head:'Scaled session · <30 min', items:[
+            {n:'Banded clamshells',d:'10 each side'},
+            {n:'Glute bridge',d:'2 × 12 · bodyweight'},
+            {n:'Bird-dog',d:'2 × 8 each side'},
+            {n:'Wall push-up',d:'2 × 10'},
+            {n:'Kegels + stretch',d:'10-sec × 10 + full cool-down'},
+          ], note:{strong:'Under 40 on key day:',text:' Do the scaled version, not nothing. Pelvic floor and stability work still counts.'}},
+        ], pill:{text:'RPE 3–4',cls:'pill-amber'}
+      },
+      {
+        groups:[
+          {head:'Warm-up', items:[
+            {n:'Hip circles + leg swings',d:'10 each direction'},
+            {n:'Banded clamshells',d:'10 each side'},
+            {n:'Pelvic tilts',d:'2 × 10 · standing or against wall'},
+          ]},
+          {head:'Main lifts', items:[
+            {n:'Glute bridge → kickback',d:'3 × 12 each side'},
+            {n:'Side-lying clamshell',d:'3 × 15 each side'},
+            {n:'Bird-dog',d:'3 × 8 each side'},
+            {n:'DB overhead press (seated)',d:'2 × 12 · light–moderate'},
+            {n:'Pallof press',d:'2 × 10 each side'},
+            {n:'Wall / kneeling push-up',d:'2 × 10'},
+          ]},
+          {head:'Cool-down', items:[
+            {n:'Kegels',d:'10-sec × 10'},
+            {n:'Cat-cow + child\'s pose',d:'Full release'},
+            {n:'Hip flexor stretch',d:'30 sec each side'},
+            {n:'Belly breathing',d:'5 breaths'},
+          ]},
+        ], pill:{text:'RPE 5–6',cls:'pill-green'}
+      },
+      {
+        groups:[
+          {head:'Warm-up', items:[
+            {n:'Hip circles + leg swings',d:'10 each direction'},
+            {n:'Banded clamshells',d:'10 each side'},
+            {n:'Pelvic tilts',d:'2 × 10 · standing or against wall'},
+          ]},
+          {head:'Full session', items:[
+            {n:'Glute bridge → kickback',d:'3 × 12 each side'},
+            {n:'Side-lying clamshell',d:'3 × 15 each side'},
+            {n:'Bird-dog',d:'3 × 8 each side'},
+            {n:'DB overhead press (seated)',d:'2 × 12'},
+            {n:'Pallof press',d:'2 × 10 each side'},
+            {n:'Wall / kneeling push-up',d:'2 × 10'},
+            {n:'Bent-over DB row',d:'2 × 12 · light'},
+          ]},
+          {head:'Cool-down + bonus', items:[
+            {n:'Kegels',d:'10-sec × 10'},
+            {n:'Cat-cow + child\'s pose',d:'Full release'},
+            {n:'Hip flexor stretch',d:'30 sec each side'},
+            {n:'Belly breathing',d:'5 breaths'},
+            {n:'Pool after if time allows',d:'Water walk 15–20 min · optional'},
+          ]},
+        ], pill:{text:'RPE 5–6',cls:'pill-green'}
+      }
+    ]
+  },
+  {
+    id:'d5', label:'Day 5 · off shift', type:'off', color:'#B85FB6',
+    name:'Yoga + mobility',
+    meta:'With husband · mirrors his day 6 · pool optional add-on',
+    dur:'30–45 min',
+    tabs:['BB < 40 · gentle only','BB 40+ · full yoga','BB 60+ · yoga + pool'],
+    sections:[
+      {
+        groups:[
+          {head:'Gentle only · 15–20 min', items:[
+            {n:'Cat-cow × 10',d:'Slow, breathe through each'},
+            {n:'Child\'s pose',d:'60-sec hold'},
+            {n:'Seated butterfly stretch',d:'60 sec · inner thigh'},
+            {n:'Kegels + belly breathing',d:'10-sec × 10 · 5 breaths'},
+          ], note:{strong:'',text:'Even a short stretch and breathwork session has genuine value. No pressure to do the full flow if you\'re depleted.'}},
+        ], pill:{text:'RPE 1–2 · very easy',cls:'pill-purple'}
+      },
+      {
+        groups:[
+          {head:'Yoga flow · 30 min', items:[
+            {n:'Cat-cow × 10',d:''},
+            {n:'Child\'s pose',d:'60-sec hold'},
+            {n:'Pigeon pose (modified)',d:'30 sec each side · use pillow'},
+            {n:'Side-lying quad stretch',d:'30 sec each side'},
+            {n:'Seated butterfly',d:'60 sec'},
+            {n:'90/90 hip rotations',d:'10 each side'},
+          ]},
+          {head:'Breathwork + pelvic floor', items:[
+            {n:'Thoracic spine rotations',d:'10 each side · seated'},
+            {n:'Neck rolls + shoulder circles',d:'Easy, slow'},
+            {n:'Diaphragmatic breathing',d:'10 slow breaths · rib expansion'},
+            {n:'Kegels',d:'10-sec × 10 · full release each time'},
+          ], note:{strong:'',text:'Shared session with your husband. Do it together — his day 6 mobility maps directly to your day 5.'}},
+        ], pill:{text:'RPE 2–3',cls:'pill-purple'}
+      },
+      {
+        groups:[
+          {head:'Full yoga flow · 30 min', items:[
+            {n:'Cat-cow × 10',d:''},
+            {n:'Child\'s pose · 60 sec',d:''},
+            {n:'Pigeon pose (modified)',d:'30 sec each side'},
+            {n:'Side-lying quad stretch',d:'30 sec each side'},
+            {n:'Seated butterfly · 60 sec',d:''},
+            {n:'90/90 hip rotations',d:'10 each side'},
+            {n:'Kegels + belly breathing',d:'10-sec × 10 · 10 breaths'},
+          ]},
+          {head:'Pool add-on · after yoga', items:[
+            {n:'Water walking',d:'20 min · shallow end'},
+            {n:'Easy lap swim',d:'10 × 50m · 30 sec rest'},
+            {n:'Float + stretch',d:'5 min · just enjoy the buoyancy'},
+          ], note:{strong:'',text:'Pool after yoga on a high BB day is one of the best feeling sessions of the cycle — warmth of yoga + relief of water.'}},
+        ], pill:{text:'RPE 2–3',cls:'pill-purple'}
+      }
+    ]
+  },
+  {
+    id:'d6', label:'Day 6 · home solo', type:'rest', color:'#635462',
+    name:'Rest + recovery',
+    meta:'Solo parenting · no gym · stroller walk optional · cycle resets tomorrow',
+    dur:'Rest day',
+    tabs:['BB < 40 · full rest','BB 40+ · stroller walk','BB 60+ · active rest'],
+    sections:[
+      {
+        groups:[
+          {head:'Full rest · no guilt', items:[
+            {n:'Sleep in if toddler allows',d:''},
+            {n:'Hydrate all day',d:''},
+            {n:'Kegels · daily set',d:'10-sec × 10 · always'},
+            {n:'Couch stretches',d:'Whatever feels good'},
+          ], note:{strong:'Solo parenting on low battery is hard enough.',text:' Chasing a toddler counts as movement. No workout needed or expected.'}},
+        ], pill:{text:'Full rest',cls:'pill-gray'}
+      },
+      {
+        groups:[
+          {head:'Stroller walk · 20–30 min', items:[
+            {n:'Easy flat route',d:'Toddler entertained, you move'},
+            {n:'Comfortable pace',d:'No incline, no rush'},
+            {n:'Kegels after',d:'10-sec × 10'},
+            {n:'Light home stretching',d:'Hip flexors, upper back, calves'},
+          ], note:{strong:'',text:'Stroller walk with the toddler is perfect — fresh air, low effort, benefits both of them.'}},
+        ], pill:{text:'HR < 120',cls:'pill-gray'}
+      },
+      {
+        groups:[
+          {head:'Active rest · at home', items:[
+            {n:'Stroller walk · 30 min',d:'Comfortable pace'},
+            {n:'Backyard movement',d:'Gardening, play — it counts'},
+            {n:'Home yoga · 15 min',d:'Cat-cow, child\'s pose, butterfly'},
+            {n:'Kegels',d:'10-sec × 10'},
+          ], note:{strong:'No gym needed even on a high BB day.',text:' This is a designated rest day by design — protect it. The cycle resets fresh tomorrow.'}},
+        ], pill:{text:'HR < 120',cls:'pill-gray'}
+      }
+    ]
+  }
+];
+
+// ─── RECOMMENDATION ENGINE ────────────────────────────────────────────────────
+
+function getTabIndex(dayId, bb) {
+  const thresholds = {
+    d1: [30, 50],   // <30 | 30-50 | 50+
+    d2: [30, 50],
+    d3: [40, 60],
+    d4: [40, 60],
+    d5: [40, 60],
+    d6: [40, 60],
+  };
+  const t = thresholds[dayId];
+  if (bb < t[0]) return 0;
+  if (bb < t[1]) return 1;
+  return 2;
+}
+
+function recommend(bb, history) {
+  // Get last 3 workouts
+  const recent = history.slice(-3).map(h => h.dayId);
+
+  // Scoring: prefer variety, respect BB
+  const scores = DAYS.map(day => {
+    let score = 0;
+
+    // Avoid repeating last workout
+    if (recent.length > 0 && recent[recent.length-1] === day.id) score -= 10;
+
+    // BB-based suitability
+    if (bb < 30) {
+      // Very low: prefer rest or light days
+      if (day.type === 'rest') score += 8;
+      if (day.id === 'd3') score += 6;
+      if (day.id === 'd2') score += 4;
+      if (day.id === 'd1' || day.id === 'd4') score -= 2;
+    } else if (bb < 50) {
+      // Medium-low: avoid heavy lifts
+      if (day.type === 'off' && (day.id === 'd3' || day.id === 'd5')) score += 5;
+      if (day.id === 'd2') score += 4;
+    } else if (bb < 70) {
+      // Medium: cardio or light lift
+      if (day.id === 'd2' || day.id === 'd5') score += 6;
+      if (day.id === 'd1') score += 4;
+    } else {
+      // High: lifts are ideal
+      if (day.id === 'd1' || day.id === 'd4') score += 8;
+      if (day.id === 'd5') score += 4;
+    }
+
+    // Haven't done this in a while = prioritize
+    const lastDone = history.filter(h => h.dayId === day.id);
+    if (lastDone.length === 0) score += 5;
+    else {
+      const daysSince = (Date.now() - new Date(lastDone[lastDone.length-1].date)) / 86400000;
+      if (daysSince > 5) score += 4;
+      else if (daysSince > 3) score += 2;
+    }
+
+    return {day, score};
+  });
+
+  scores.sort((a,b) => b.score - a.score);
+  return scores[0].day;
+}
+
+function getBBZone(bb) {
+  if (bb < 30) return {label:'Very Low — Rest Focus', cls:'low'};
+  if (bb < 50) return {label:'Low — Scale It Back', cls:'low'};
+  if (bb < 70) return {label:'Moderate — Steady Session', cls:'med'};
+  if (bb < 85) return {label:'High — Full Workout', cls:'high'};
+  return {label:'Peak Energy — Push It', cls:'high'};
+}
+
+function getBBReason(bb, dayId) {
+  const reasons = {
+    d1: {
+      0: 'Your energy is very low — scaled session only. Movement still helps.',
+      1: 'Good energy for a solid Lift A session. Default plan is perfect.',
+      2: 'High battery — push the full session with accessories.'
+    },
+    d2: {
+      0: 'Too depleted for cardio. Movement breaks through the shift is the right call.',
+      1: 'Easy bike at conversational pace is ideal for this energy level.',
+      2: 'Recovered well — incline walk gives a good stimulus without overdoing it.'
+    },
+    d3: {
+      0: 'Post-shift + low battery = sleep is the only priority today.',
+      1: 'A gentle walk is perfect active recovery without taxing the system.',
+      2: 'Good BB post-shift — pool or walk will feel great and aid recovery.'
+    },
+    d4: {
+      0: 'Energy is low but the scaled version still counts. Don\'t skip entirely.',
+      1: 'This is the key day — default plan is well matched to your energy.',
+      2: 'High energy on the key day — full session with the optional pool bonus.'
+    },
+    d5: {
+      0: 'Gentle stretches only — breathwork and Kegels are enough today.',
+      1: 'Great day for the full yoga flow. Do it with your husband.',
+      2: 'Perfect energy for yoga + pool. Best feeling session of the cycle.'
+    },
+    d6: {
+      0: 'Low battery + solo parenting = rest. Chasing a toddler counts.',
+      1: 'Stroller walk is the ideal move today — fresh air for both.',
+      2: 'Active rest at home — protect this day even with high battery.'
+    }
+  };
+  const ti = getTabIndex(dayId, bb);
+  return reasons[dayId]?.[ti] || '';
+}
+
+// ─── STORAGE ──────────────────────────────────────────────────────────────────
+
+function getHistory() {
+  return JSON.parse(localStorage.getItem('wt_history') || '[]');
+}
+function saveHistory(h) {
+  localStorage.setItem('wt_history', JSON.stringify(h));
+}
+function logWorkout(dayId, bb) {
+  const h = getHistory();
+  h.push({dayId, bb, date: new Date().toISOString()});
+  saveHistory(h);
+}
+
+// ─── SECTION HEADER CLASSIFIER ───────────────────────────────────────────────
+
+function colHeadClass(head) {
+  const h = head.toLowerCase();
+  if (h.includes('warm')) return 'ch-warmup';
+  if (h.includes('main lift') || h.includes('main lift') || h.includes('full session') || h.includes('accessories')) return 'ch-main';
+  if (h.includes('cool-down') || h.includes('cooldown') || h.includes('cool down')) return 'ch-cooldown';
+  if (h.includes('breathwork') || h.includes('pelvic floor')) return 'ch-breathwork';
+  if (h.includes('pool') || h.includes('cardio') || h.includes('bike') || h.includes('treadmill') || h.includes('incline')) return 'ch-pool';
+  if (h.includes('scaled') || h.includes('skip') || h.includes('defer') || h.includes('movement break')) return 'ch-scaled';
+  return 'ch-default';
+}
+
+// ─── RENDER HELPERS ───────────────────────────────────────────────────────────
+
+function renderWorkoutPage(day, bb, fromPage) {
+  const tabIdx = getTabIndex(day.id, bb);
+  const typeCls = day.type === 'shift' ? 'type-shift' : day.type === 'off' ? 'type-off' : 'type-rest';
+
+  let tabsHtml = day.tabs.map((t,i) =>
+    `<button class="wbtab ${i===tabIdx?'active':''} ${typeCls}" onclick="switchWBTab(${i},this,'${typeCls}')">${t}</button>`
+  ).join('');
+
+  let sectionsHtml = day.sections.map((sec, si) => {
+    let groupsHtml = sec.groups.map(g => {
+      let itemsHtml = g.items.map(it => {
+        const hasRef = REFS.hasOwnProperty(it.n);
+        const refBtn = hasRef ? `<button class="ref-btn" onclick="openModal('${it.n.replace(/'/g,"\\'")}')">▶ Movement ref</button>` : '';
+        return `<div class="ex-item"><div class="ex-name">${it.n}</div>${it.d?`<div class="ex-detail">${it.d}</div>`:''}${refBtn}</div>`;
+      }).join('');
+      let noteHtml = g.note ? `<div class="note-box">${g.note.strong?`<strong>${g.note.strong}</strong>`:''}${g.note.text}</div>` : '';
+      const headCls = colHeadClass(g.head || '');
+      return `<div class="section-group"><div class="col-head ${headCls}">${g.head||''}</div>${itemsHtml}${noteHtml}</div>`;
+    }).join('');
+    return `<div class="section-panel ${si===tabIdx?'active':''}" id="wp-sec-${si}">
+      <div class="card">${groupsHtml}<span class="pill ${sec.pill.cls}">${sec.pill.text}</span></div>
+    </div>`;
+  }).join('');
+
+  const btnCls = day.type === 'shift' ? 'btn-amber' : day.type === 'rest' ? 'btn-gray' : 'btn-primary';
+
+  document.getElementById('page-workout').innerHTML = `
+    <button class="back-btn" onclick="showPage('${fromPage}')">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      Back
+    </button>
+    <div class="workout-header">
+      <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:${day.color};margin-bottom:4px">${day.label}</div>
+      <div class="workout-title">${day.name}${day.badge?` <span style="font-size:12px;padding:2px 8px;border-radius:4px;background:#EAF3DE;color:#27500A;border:0.5px solid #97C459;font-weight:500;vertical-align:middle;margin-left:6px">${day.badge}</span>`:''}</div>
+      <div class="workout-meta">${day.meta}</div>
+      <div class="workout-dur" style="margin-top:4px">${day.dur}</div>
+    </div>
+    <div class="bb-tab-bar">${tabsHtml}</div>
+    ${sectionsHtml}
+    <div style="height:16px"></div>
+    <div class="complete-bar">
+      <button class="btn ${btnCls}" onclick="markComplete('${day.id}',${bb},'${fromPage}')">
+        ✓ &nbsp;Mark as complete
+      </button>
+    </div>
+  `;
+  showPage('workout');
+}
+
+function switchWBTab(idx, btn, typeCls) {
+  document.querySelectorAll('#page-workout .wbtab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('#page-workout .section-panel').forEach((p,i) => {
+    p.classList.toggle('active', i === idx);
+  });
+}
+
+function markComplete(dayId, bb, fromPage) {
+  logWorkout(dayId, bb);
+  showToast('Workout logged! 🎉');
+  setTimeout(() => showPage(fromPage === 'workout' ? 'home' : fromPage), 400);
+  renderHome();
+  renderHistory();
+}
+
+// ─── HOME PAGE ────────────────────────────────────────────────────────────────
+
+function renderHome() {
+  // Date + time-of-day greeting
+  const now = new Date();
+  const hour = now.getHours();
+  let greeting;
+  if (hour < 12)      greeting = 'Good morning';
+  else if (hour < 17) greeting = 'Good afternoon';
+  else if (hour < 21) greeting = 'Good evening';
+  else                greeting = 'Hey';
+  document.getElementById('home-greeting').innerHTML = `${greeting}, <span style="font-family:'Dancing Script',cursive;font-size:1.15em;font-weight:600">Chloe</span>`;
+  document.getElementById('home-date').textContent = now.toLocaleDateString('en-US', {weekday:'long', month:'long', day:'numeric'});
+
+  // Cycle day calculation — anchor: May 31 2025 = Day 1
+  const anchor = new Date('2025-05-31T00:00:00');
+  const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const daysSinceAnchor = Math.round((todayMidnight - anchor) / 86400000);
+  const cycleIndex = ((daysSinceAnchor % 6) + 6) % 6; // 0–5
+  const cycleDay = cycleIndex + 1;
+  const cycleInfo = [
+    { name:'Lift A',                type:'On Shift',   bg:'rgba(184,147,95,.2)',  color:'#B8935F' },
+    { name:'Recovery Cardio',       type:'On Shift',   bg:'rgba(184,147,95,.2)',  color:'#B8935F' },
+    { name:'Rest + Movement',       type:'Post-Shift', bg:'rgba(99,84,98,.3)',    color:'#a898a6' },
+    { name:'Lift B',                type:'Off Shift',  bg:'rgba(125,184,95,.2)',  color:'#7DB85F' },
+    { name:'Yoga + Mobility',       type:'Off Shift',  bg:'rgba(184,95,182,.2)',  color:'#B85FB6' },
+    { name:'Rest + Recovery',       type:'Home Solo',  bg:'rgba(99,84,98,.3)',    color:'#a898a6' },
+  ][cycleIndex];
+  const badge = document.getElementById('cycle-badge');
+  badge.style.background = cycleInfo.bg;
+  badge.style.borderLeft = `3px solid ${cycleInfo.color}`;
+  badge.innerHTML = `
+    <div class="cycle-day" style="color:${cycleInfo.color}">Day ${cycleDay} of 6</div>
+    <div class="cycle-name" style="color:${cycleInfo.color}">${cycleInfo.name}</div>
+    <div class="cycle-type">${cycleInfo.type}</div>
+  `;
+
+  const bb = parseInt(document.getElementById('bb-slider').value);
+  updateBBDisplay(bb);
+
+  // Daily quote
+  const dayIndex = Math.floor(now.getTime() / 86400000) % QUOTES.length;
+  document.getElementById('quote-text').textContent = QUOTES[dayIndex];
+
+  const history = getHistory();
+  const rec = recommend(bb, history);
+  const tabIdx = getTabIndex(rec.id, bb);
+  const reason = getBBReason(bb, rec.id);
+
+  const btnCls = rec.type === 'shift' ? 'btn-amber' : rec.type === 'rest' ? 'btn-gray' : 'btn-primary';
+
+  document.getElementById('rec-area').innerHTML = `
+    <div class="rec-card ${rec.type}">
+      <div class="rec-label">Recommended today</div>
+      <div class="rec-title">${rec.name}</div>
+      <div class="rec-meta">${rec.label} · ${rec.dur} · ${rec.tabs[tabIdx]}</div>
+      <div class="rec-reason">${reason}</div>
+      <button class="btn ${btnCls}" onclick="renderWorkoutPage(DAYS.find(d=>d.id==='${rec.id}'), ${bb}, 'home')">
+        View workout →
+      </button>
+    </div>
+  `;
+
+  // Recent preview
+  const recent = history.slice(-3).reverse();
+  if (recent.length === 0) {
+    document.getElementById('recent-list-preview').innerHTML = `<div class="empty-state"><p>No workouts logged yet.<br>Complete your first session!</p></div>`;
+  } else {
+    document.getElementById('recent-list-preview').innerHTML = recent.map(h => {
+      const day = DAYS.find(d => d.id === h.dayId);
+      const d = new Date(h.date);
+      const label = d.toLocaleDateString('en-US', {weekday:'short', month:'short', day:'numeric'});
+      return `<div class="history-item">
+        <div class="history-dot" style="background:${day.color}"></div>
+        <div class="history-info">
+          <div class="history-name">${day.name}</div>
+          <div class="history-date">${label}</div>
+        </div>
+        <div class="history-bb" style="background:#EAF3DE;color:#27500A">BB ${h.bb}</div>
+      </div>`;
+    }).join('');
+  }
+}
+
+function updateBBDisplay(bb) {
+  const zone = getBBZone(bb);
+  const disp = document.getElementById('bb-display');
+  const badge = document.getElementById('bb-zone-badge');
+  disp.textContent = bb;
+  disp.className = 'bb-display ' + zone.cls;
+
+  badge.textContent = zone.label;
+  if (bb < 30) { badge.style.background='rgba(184,95,182,.2)'; badge.style.color='#B85FB6'; }
+  else if (bb < 50) { badge.style.background='rgba(184,147,95,.2)'; badge.style.color='#B8935F'; }
+  else if (bb < 70) { badge.style.background='rgba(95,149,184,.2)'; badge.style.color='#5F95B8'; }
+  else { badge.style.background='rgba(125,184,95,.2)'; badge.style.color='#7DB85F'; }
+}
+
+document.getElementById('bb-slider').addEventListener('input', function() {
+  updateBBDisplay(parseInt(this.value));
+  renderHome();
+});
+
+// ─── GUIDE PAGE ───────────────────────────────────────────────────────────────
+
+function renderGuide() {
+  const bb = parseInt(document.getElementById('bb-slider').value);
+  document.getElementById('day-list').innerHTML = DAYS.map(day => `
+    <div class="day-list-item" onclick="renderWorkoutPage(DAYS.find(d=>d.id==='${day.id}'), ${bb}, 'guide')">
+      <div class="day-list-dot" style="background:${day.color}"></div>
+      <div class="day-list-info">
+        <div class="day-list-name">${day.name}</div>
+        <div class="day-list-meta">${day.label} · ${day.dur}</div>
+      </div>
+      <svg class="day-list-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+    </div>
+  `).join('');
+}
+
+// ─── HISTORY PAGE ─────────────────────────────────────────────────────────────
+
+function calcStreak(history) {
+  if (!history.length) return 0;
+  const sorted = [...history].sort((a,b) => new Date(b.date)-new Date(a.date));
+  let streak = 0;
+  let check = new Date(); check.setHours(0,0,0,0);
+  for (const h of sorted) {
+    const d = new Date(h.date); d.setHours(0,0,0,0);
+    const diff = (check - d) / 86400000;
+    if (diff > 1) break;
+    if (diff <= 1) { streak++; check = d; }
+  }
+  return streak;
+}
+
+const QUOTES = [
+  'Water first. Everything else second — hydration affects energy more than most people realise.',
+  'Rest is part of the program, not a break from it.',
+  'How you feel on any given day is data, not failure.',
+  'Consistency over months beats intensity over weeks.',
+  'Sleep is the one recovery tool that costs nothing.',
+  'A short workout done is worth more than a perfect one skipped.',
+  'Soreness means you worked. Fatigue means you need rest. Learn the difference.',
+  'Progress isn\'t always visible. It\'s still happening.',
+  'Fuelling well before a session is just as important as the session itself.',
+  'Some days the win is simply showing up and doing what you can.',
+  'Your body adapts to what you consistently ask of it.',
+  'Mobility work isn\'t optional — it\'s what keeps everything else sustainable.',
+  'Take five minutes today just for you. No phone, no noise.',
+  'Strong doesn\'t have one shape. It looks like whatever you\'re doing right now.',
+  'A walk still counts. Movement is movement.',
+  'The goal isn\'t perfection. It\'s building something that lasts.',
+  'Recovery isn\'t weakness — it\'s where the adaptation actually happens.',
+  'You don\'t have to earn rest. Rest is part of being well.',
+  'Small consistent efforts compound into results you won\'t believe in a year.',
+  'Breathe. Reset. Go again.',
+  'The best workout is the one that fits your life today, not an ideal version of it.',
+  'Drink water before you decide you\'re tired.',
+  'Showing up on the hard days is what actually builds the habit.',
+  'Your energy is finite. Spend it on what matters most.',
+  'Warming up properly is the easiest injury you\'ll never have.',
+  'Two good days a week beats seven inconsistent ones every time.',
+  'You\'re not starting over — you\'re continuing from where you left off.',
+  'The days you least feel like moving are often the days it helps most.',
+  'Strength is built in the moments you almost didn\'t bother.',
+  'Taking care of yourself isn\'t selfish. It\'s sustainable.'
+];
+
+function renderHistory() {
+  const history = getHistory().slice().reverse();
+  const now = new Date();
+  const weekStart = new Date(now); weekStart.setDate(now.getDate() - now.getDay());
+
+  const thisWeek = history.filter(h => new Date(h.date) >= weekStart).length;
+  const streak = calcStreak(history);
+
+  document.getElementById('streak-num').textContent = streak;
+  document.getElementById('stat-total').textContent = history.length;
+  document.getElementById('stat-week').textContent = thisWeek;
+
+  // Rotate quote by day so it changes daily but stays stable within a session
+  const dayIndex = Math.floor(now.getTime() / 86400000) % QUOTES.length;
+  document.getElementById('quote-text').textContent = QUOTES[dayIndex];
+
+  if (!history.length) {
+    document.getElementById('history-list').innerHTML = `<div class="empty-state"><p>No workouts yet.<br>Log your first one from the Today tab!</p></div>`;
+    return;
+  }
+
+  document.getElementById('history-list').innerHTML = history.map(h => {
+    const day = DAYS.find(d => d.id === h.dayId);
+    const d = new Date(h.date);
+    const label = d.toLocaleDateString('en-US', {weekday:'short', month:'short', day:'numeric', hour:'numeric', minute:'2-digit'});
+    return `<div class="history-item">
+      <div class="history-dot" style="background:${day.color}"></div>
+      <div class="history-info">
+        <div class="history-name">${day.name}</div>
+        <div class="history-date">${label}</div>
+      </div>
+      <div class="history-bb">BB ${h.bb}</div>
+    </div>`;
+  }).join('');
+}
+
+// ─── NAV ──────────────────────────────────────────────────────────────────────
+
+const PAGE_ORDER = ['home', 'guide', 'history'];
+let currentPage = 'home';
+
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  if (name !== 'workout') {
+    currentPage = name;
+    document.getElementById('nav-'+name)?.classList.add('active');
+  }
+  window.scrollTo(0,0);
+}
+
+// ─── SWIPE NAVIGATION ─────────────────────────────────────────────────────────
+(function() {
+  let touchStartX = 0;
+  let touchStartY = 0;
+
+  document.addEventListener('touchstart', e => {
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+  }, {passive: true});
+
+  document.addEventListener('touchend', e => {
+    // Don't swipe if inside a workout detail page
+    if (currentPage === 'workout') return;
+
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    const dy = e.changedTouches[0].clientY - touchStartY;
+
+    // Only trigger if horizontal swipe is dominant and long enough
+    if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+
+    const idx = PAGE_ORDER.indexOf(currentPage);
+    if (dx < 0 && idx < PAGE_ORDER.length - 1) {
+      // Swipe left → next page
+      showPage(PAGE_ORDER[idx + 1]);
+    } else if (dx > 0 && idx > 0) {
+      // Swipe right → previous page
+      showPage(PAGE_ORDER[idx - 1]);
+    }
+  }, {passive: true});
+})();
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ─── MOVEMENT REFERENCES ─────────────────────────────────────────────────────
+// type: 'gif' or 'img'
+// url:  direct link to GIF or image — replace NEEDS_URL with the real link
+// note: shown below the image as a helpful cue
+
+const REFS = {
+  'Goblet squat': {
+    url: 'https://musclewiki.com/media/uploads/male-barbell-goblet-squat-front.gif',
+    type: 'gif',
+    note: 'Keep the weight close to your chest, chest tall, knees tracking over toes.'
+  },
+  'DB Romanian deadlift': {
+    url: 'https://musclewiki.com/media/uploads/male-dumbbell-romanian-deadlift-side.gif',
+    type: 'gif',
+    note: 'Hinge at the hips, soft knee, keep the weights close to your legs throughout.'
+  },
+  'Glute bridge → kickback': {
+    url: 'https://musclewiki.com/media/uploads/female-bodyweight-glute-bridge-side.gif',
+    type: 'gif',
+    note: 'Drive through the heel, squeeze at the top. For the kickback: extend one leg back at the top, hold briefly, lower with control.'
+  },
+  'Bird-dog': {
+    url: 'NEEDS_URL', // Check: musclewiki.com or YouTube thumbnail
+    type: 'gif',
+    note: 'Opposite arm and leg extend slowly. Keep your back flat — no rotation in the hips.'
+  },
+  'Pelvic tilts': {
+    url: 'NEEDS_URL', // Check: pelvicfloor.com.au or birthfit.com
+    type: 'gif',
+    note: 'Standing or against a wall — gently tilt your pelvis forward and back. Small controlled movement, breathe throughout.'
+  },
+  'Pallof press': {
+    url: 'NEEDS_URL', // Check: musclewiki.com/pallof-press or barbend.com
+    type: 'gif',
+    note: 'Press straight out, hold 1–2 seconds, return slowly. Resist any rotation — that\'s the whole point.'
+  },
+  'Banded clamshells': {
+    url: 'NEEDS_URL', // Check: musclewiki.com or verywellfit.com
+    type: 'gif',
+    note: 'Feet stay together, top knee opens like a clamshell. Keep your hips stacked — don\'t roll back.'
+  },
+  'Side-lying clamshell': {
+    url: 'NEEDS_URL', // Same as banded clamshells — check same sources
+    type: 'gif',
+    note: 'Same movement as banded clamshells without the band. Focus on control and full range.'
+  },
+  'Single-leg press / step-up': {
+    url: 'NEEDS_URL', // Check: musclewiki.com/step-up
+    type: 'gif',
+    note: 'Drive through the whole foot on the way up. Step down with control — don\'t drop.'
+  },
+  'Pigeon pose (modified)': {
+    url: 'NEEDS_URL', // Check: prenatalyogacenter.com or birthfit.com for pregnancy version
+    type: 'img',
+    note: 'Use a pillow or bolster under the front hip for support. Avoid deep forward folds as belly grows — stay upright.'
+  },
+  '90/90 hip rotations': {
+    url: 'NEEDS_URL', // Check: youtube.com or gmb.io for 90/90 stretch
+    type: 'gif',
+    note: 'Both legs at 90 degrees. Rotate slowly from one side to the other, keeping both sit bones heavy.'
+  },
+  'Cat-cow × 10': {
+    url: 'NEEDS_URL', // Check: musclewiki.com or yogajournal.com
+    type: 'gif',
+    note: 'Inhale to arch (cow), exhale to round (cat). Move with your breath, not against it.'
+  },
+  'Diaphragmatic breathing': {
+    url: 'NEEDS_URL', // Check: physio or pregnancy breathing diagram — pelvicfloor.com.au
+    type: 'img',
+    note: 'Hand on belly, hand on chest. Only the belly hand should rise. Breathe in through the nose, slow out through the mouth.'
+  },
+  'DB overhead press (seated)': {
+    url: 'https://musclewiki.com/media/uploads/male-dumbbell-shoulder-press-front.gif',
+    type: 'gif',
+    note: 'Seated to protect your core. Press straight up, don\'t arch your lower back.'
+  },
+  'Bent-over DB row': {
+    url: 'https://musclewiki.com/media/uploads/male-dumbbell-bent-over-row-side.gif',
+    type: 'gif',
+    note: 'Hinge forward, keep your back flat. Pull the elbow straight back, squeeze at the top.'
+  },
+};
+
+// ─── MODAL ────────────────────────────────────────────────────────────────────
+
+function openModal(exerciseName) {
+  const ref = REFS[exerciseName];
+  if (!ref) return;
+
+  document.getElementById('modal-title').textContent = exerciseName;
+  document.getElementById('modal-note').textContent = ref.note || '';
+
+  const media = document.getElementById('modal-media');
+  if (ref.url === 'NEEDS_URL') {
+    media.innerHTML = `<div class="media-placeholder">🎬 Reference coming soon</div>`;
+  } else {
+    media.innerHTML = `<img src="${ref.url}" alt="${exerciseName}" loading="lazy">`;
+  }
+
+  document.getElementById('modal-overlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+// Close on overlay tap (but not card tap)
+document.getElementById('modal-overlay').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+
+// Swipe down to close
+(function() {
+  let startY = 0;
+  const card = document.getElementById('modal-card');
+  card.addEventListener('touchstart', e => { startY = e.touches[0].clientY; }, {passive:true});
+  card.addEventListener('touchend', e => {
+    if (e.changedTouches[0].clientY - startY > 60) closeModal();
+  }, {passive:true});
+})();
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+
+renderHome();
+renderGuide();
+renderHistory();
+</script>
+</body>
+</html>
