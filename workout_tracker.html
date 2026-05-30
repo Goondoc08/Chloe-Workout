@@ -844,11 +844,11 @@ function renderHome() {
   document.getElementById('home-greeting').innerHTML = `${greeting}, <span style="font-family:'Dancing Script',cursive;font-size:1.15em;font-weight:600">Chloe</span>`;
   document.getElementById('home-date').textContent = now.toLocaleDateString('en-US', {weekday:'long', month:'long', day:'numeric'});
 
-  // Cycle day calculation — anchor: May 31 2025 = Day 1
-  const anchor = new Date('2025-05-31T00:00:00');
+  // Cycle day calculation — anchor: May 25 2025 = Day 1 (current cycle start)
+  const anchor = new Date(2025, 4, 25); // May 25 2025, local time, no ambiguity
   const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const daysSinceAnchor = Math.round((todayMidnight - anchor) / 86400000);
-  const cycleIndex = ((daysSinceAnchor % 6) + 6) % 6; // 0–5
+  const cycleIndex = daysSinceAnchor % 6; // always positive from a past anchor
   const cycleDay = cycleIndex + 1;
   const cycleInfo = [
     { name:'Lift A',                type:'On Shift',   bg:'rgba(184,147,95,.2)',  color:'#B8935F' },
