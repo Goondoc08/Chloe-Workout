@@ -1078,14 +1078,18 @@ window.addEventListener('popstate', function() {
   let touchStartX = 0;
   let touchStartY = 0;
 
+  let swipeBlocked = false;
+
   document.addEventListener('touchstart', e => {
+    // Block swipe if touch starts on the slider or any input element
+    swipeBlocked = e.target.closest('input[type="range"], input, select, textarea') !== null;
     touchStartX = e.touches[0].clientX;
     touchStartY = e.touches[0].clientY;
   }, {passive: true});
 
   document.addEventListener('touchend', e => {
-    // Don't swipe if inside a workout detail page
-    if (currentPage === 'workout') return;
+    // Don't swipe if inside a workout detail page or on a slider
+    if (currentPage === 'workout' || swipeBlocked) return;
 
     const dx = e.changedTouches[0].clientX - touchStartX;
     const dy = e.changedTouches[0].clientY - touchStartY;
