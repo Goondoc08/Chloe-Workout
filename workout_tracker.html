@@ -937,9 +937,8 @@ document.getElementById('bb-slider').addEventListener('input', function() {
 // ─── GUIDE PAGE ───────────────────────────────────────────────────────────────
 
 function renderGuide() {
-  const bb = parseInt(document.getElementById('bb-slider').value);
   document.getElementById('day-list').innerHTML = DAYS.map(day => `
-    <div class="day-list-item" onclick="renderWorkoutPage(DAYS.find(d=>d.id==='${day.id}'), ${bb}, 'guide')">
+    <div class="day-list-item" onclick="renderWorkoutPage(DAYS.find(d=>d.id==='${day.id}'), parseInt(document.getElementById('bb-slider').value), 'guide')">
       <div class="day-list-dot" style="background:${day.color}"></div>
       <div class="day-list-info">
         <div class="day-list-name">${day.name}</div>
