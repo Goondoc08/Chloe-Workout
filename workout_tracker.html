@@ -648,41 +648,41 @@ function recommend(bb, history) {
   // Get last 3 workouts
   const recent = history.slice(-3).map(h => h.dayId);
 
-  // Scoring: prefer variety, respect BB
+  // Get today's cycle day (0-based index)
+  const anchor = new Date(2026, 4, 25);
+  const todayMidnight = new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
+  const cycleIndex = Math.round((todayMidnight - anchor) / 86400000) % 6;
+  const todaysDayId = DAYS[cycleIndex].id;
+
+  // Scoring: cycle day is the primary driver, BB adjusts within that
   const scores = DAYS.map(day => {
     let score = 0;
+
+    // Strongly prefer today's cycle day — BB only overrides at extremes
+    if (day.id === todaysDayId) score += 20;
 
     // Avoid repeating last workout
     if (recent.length > 0 && recent[recent.length-1] === day.id) score -= 10;
 
-    // BB-based suitability
+    // BB override — only kicks in at very low energy
     if (bb < 30) {
-      // Very low: prefer rest or light days
+      // Very low: nudge toward rest regardless of cycle day
       if (day.type === 'rest') score += 8;
       if (day.id === 'd3') score += 6;
-      if (day.id === 'd2') score += 4;
-      if (day.id === 'd1' || day.id === 'd4') score -= 2;
-    } else if (bb < 50) {
-      // Medium-low: avoid heavy lifts
-      if (day.type === 'off' && (day.id === 'd3' || day.id === 'd5')) score += 5;
-      if (day.id === 'd2') score += 4;
-    } else if (bb < 70) {
-      // Medium: cardio or light lift
-      if (day.id === 'd2' || day.id === 'd5') score += 6;
-      if (day.id === 'd1') score += 4;
-    } else {
-      // High: lifts are ideal
-      if (day.id === 'd1' || day.id === 'd4') score += 8;
-      if (day.id === 'd5') score += 4;
+      if (day.id === 'd1' || day.id === 'd4') score -= 4;
+    } else if (bb < 40) {
+      // Low: scaled versions still available, slight nudge to lighter days
+      if (day.type === 'rest') score += 4;
+      if (day.id === 'd3') score += 3;
     }
+    // BB 40+ : cycle day takes full priority, BB just sets the tab tier
 
-    // Haven't done this in a while = prioritize
+    // Haven't done this in a while = small boost
     const lastDone = history.filter(h => h.dayId === day.id);
-    if (lastDone.length === 0) score += 5;
+    if (lastDone.length === 0) score += 3;
     else {
       const daysSince = (Date.now() - new Date(lastDone[lastDone.length-1].date)) / 86400000;
-      if (daysSince > 5) score += 4;
-      else if (daysSince > 3) score += 2;
+      if (daysSince > 5) score += 2;
     }
 
     return {day, score};
