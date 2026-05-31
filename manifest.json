@@ -1,6 +1,6 @@
 {
-  "name": "Chloe's Workout",
-  "short_name": "Workout",
+  "name": "BK Fitness",
+  "short_name": "BK Fitness",
   "description": "Personal pregnancy training guide and tracker",
   "start_url": "/Chloe-Workout/workout_tracker.html",
   "display": "standalone",
