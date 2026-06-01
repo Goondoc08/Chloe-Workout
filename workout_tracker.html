@@ -219,8 +219,10 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 .aw-fb-light.selected{background:rgba(125,184,95,.25);border-color:#7DB85F}
 .aw-fb-good.selected{background:rgba(95,149,184,.25);border-color:#5F95B8}
 .aw-fb-heavy.selected{background:rgba(184,147,95,.25);border-color:#B8935F}
-.aw-check-btn{display:inline-flex;align-items:center;justify-content:center;padding:3px 9px;border-radius:6px;border:1.5px solid rgba(125,184,95,.5);background:rgba(125,184,95,.08);color:rgba(125,184,95,.35);font-size:11px;font-weight:600;cursor:pointer;flex-shrink:0;transition:all .15s}
+.aw-check-btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:4px 10px;border-radius:6px;border:2px solid rgba(125,184,95,.75);background:transparent;color:rgba(125,184,95,.75);font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0;transition:all .15s;letter-spacing:.3px}
+.aw-check-btn::before{content:'○';font-size:13px;line-height:1}
 .aw-check-btn.checked{background:var(--p-green);border-color:var(--p-green);color:#fff}
+.aw-check-btn.checked::before{content:'✓'}
 
 /* SWAP */
 .swap-btn{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:var(--p-blue);background:rgba(95,149,184,.08);border:1.5px solid rgba(95,149,184,.4);border-radius:6px;padding:3px 9px;cursor:pointer;letter-spacing:.02em;transition:all .15s;flex-shrink:0}
