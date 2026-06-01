@@ -1268,6 +1268,62 @@ const REFS = {
     type: 'gif',
     note: 'Hinge forward, keep your back flat. Pull the elbow straight back, squeeze at the top.'
   },
+  // ─── Swap alternatives ───
+  'Figure-4 stretch (seated)': {
+    url: 'seated-piriformis-stretch.gif',
+    type: 'gif',
+    note: 'Cross one ankle over the opposite knee. Sit tall and lean slightly forward for more depth. Use a pillow under the hip if needed.'
+  },
+  'Sumo squat': {
+    url: 'sumo-squat.gif',
+    type: 'gif',
+    note: 'Feet wide, toes turned out. Hold the DB at your chest or let it hang. Keep your chest tall and knees tracking over your toes.'
+  },
+  'Split squat': {
+    url: 'split-squat.gif',
+    type: 'gif',
+    note: 'Front shin stays vertical. Lower slowly — back knee approaches the floor. Drive through the front heel to stand.'
+  },
+  'DB bicep curl (seated)': {
+    url: 'bicep-curl-seated.gif',
+    type: 'gif',
+    note: 'Seated keeps your core protected. Palms face up, full range of motion. Slow on the way down — don\'t let gravity do the work.'
+  },
+  'DB lateral raise (seated)': {
+    url: 'lateral-raise-seated.gif',
+    type: 'gif',
+    note: 'Light weight — this is harder than it looks. Lift to shoulder height, no higher. Keep a soft bend in the elbow and don\'t shrug.'
+  },
+  'Fire hydrants': {
+    url: 'fire-hydrants.gif',
+    type: 'gif',
+    note: 'On all fours, lift one knee out to the side like a dog at a fire hydrant. Keep your hips level — don\'t let the opposite hip rise.'
+  },
+  'Side-lying leg lifts': {
+    url: 'side-lying-leg-lifts.gif',
+    type: 'gif',
+    note: 'Top leg straight, flex the foot. Lift slowly and lower with control. Keep your hips stacked — don\'t roll back.'
+  },
+  'Donkey kicks': {
+    url: 'donkey-kicks.gif',
+    type: 'gif',
+    note: 'On all fours, kick one heel toward the ceiling. Squeeze the glute at the top, keep hips square. Don\'t arch your lower back.'
+  },
+  'Seated hamstring stretch': {
+    url: 'seated-hamstring-stretch.gif',
+    type: 'gif',
+    note: 'One leg extended, hinge forward at the hip — not the waist. Keep your back flat. You\'ll feel it behind the knee and up the thigh.'
+  },
+  'RDL to shoulder press': {
+    url: 'rdl-shoulder-press.gif',
+    type: 'gif',
+    note: 'Hinge back into the RDL, then drive through the hips as you stand and press overhead in one fluid movement. Keep your core tight throughout.'
+  },
+  'Dumbbell squat curl and press': {
+    url: 'squat-curl-press.gif',
+    type: 'gif',
+    note: 'Squat down, stand up and curl the DBs, then press overhead — one continuous movement. Control each phase. Light weight to start.'
+  },
 };
 
 // ─── WEIGHTED EXERCISES (default lbs — conservative starting weights) ─────────
@@ -1283,10 +1339,12 @@ const WEIGHTED_EXERCISES = {
   'Bent-over DB row':          15,
   'DB row':                    10,
   // Swap alternatives
-  'Sumo squat':                15,
-  'Split squat':               10,
-  'DB bicep curl (seated)':    10,
-  'DB lateral raise (seated)':  8,
+  'Sumo squat':                    15,
+  'Split squat':                   10,
+  'DB bicep curl (seated)':        10,
+  'DB lateral raise (seated)':      8,
+  'RDL to shoulder press':         15,
+  'Dumbbell squat curl and press': 12,
 };
 
 function getWeights() {
@@ -1346,6 +1404,8 @@ const SWAP_LIBRARY = {
   'lower-weight': [
     {n:'Sumo squat', d:'3 × 12 · feet wide, toes out · DB held at chest or hanging · pause at the bottom', gif:'sumo-squat.gif'},
     {n:'Split squat', d:'3 × 10 each side · bodyweight or light DB · keep front shin vertical · slow descent', gif:'split-squat.gif'},
+    {n:'RDL to shoulder press', d:'3 × 10 · hinge into RDL then drive up and press overhead · one fluid movement', gif:'rdl-shoulder-press.gif'},
+    {n:'Dumbbell squat curl and press', d:'3 × 10 · squat down, stand and curl, then press overhead · control each phase · light weight', gif:'squat-curl-press.gif'},
   ],
   'upper-weight': [
     {n:'DB bicep curl (seated)', d:'3 × 12 · seated, palms facing up · full range of motion · slow on the way down', gif:'bicep-curl-seated.gif'},
@@ -1468,9 +1528,7 @@ function _renderActiveWorkout() {
       const cat = SWAP_CAT[it.n];
       const hasSwapOptions = !!(cat && SWAP_LIBRARY[cat]?.length);
       const isWeighted = WEIGHTED_EXERCISES.hasOwnProperty(ex.n);
-      const hasRef = swap
-        ? (swap.gif && swap.gif !== 'NEEDS_GIF' && false) // no GIFs yet for subs
-        : REFS.hasOwnProperty(it.n);
+      const hasRef = REFS.hasOwnProperty(swap ? swap.n : it.n);
 
       html += `<div class="aw-exercise${isDone ? ' aw-done' : ''}" id="aw-ex-${gIdx}-${iIdx}">
         <div class="aw-ex-top">
@@ -1491,8 +1549,8 @@ function _renderActiveWorkout() {
       if (hasRef || hasSwapOptions) {
         html += `<div style="display:flex;gap:6px;margin-top:5px;flex-wrap:wrap">`;
         if (hasRef) {
-          const safeName = it.n.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-          html += `<button class="ref-btn" onclick="openModal('${safeName}')">▶ Movement ref</button>`;
+          const refName = (swap ? swap.n : it.n).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+          html += `<button class="ref-btn" onclick="openModal('${refName}')">▶ Movement ref</button>`;
         }
         if (hasSwapOptions) {
           html += `<button class="swap-btn${isSwapped ? ' swapped' : ''}" onclick="openSwapModal(${gIdx},${iIdx})">⇄ ${isSwapped ? 'Change swap' : 'Swap'}</button>`;
