@@ -222,6 +222,21 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 .aw-check-btn{width:28px;height:28px;border-radius:50%;border:2px solid var(--border);background:none;color:var(--p-green);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s}
 .aw-check-btn.checked{background:var(--p-green);border-color:var(--p-green);color:#fff}
 
+/* SWAP */
+.swap-btn{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:var(--text3);background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:6px;padding:3px 9px;cursor:pointer;letter-spacing:.02em;transition:all .15s}
+.swap-btn:active{opacity:.7}
+.swap-btn.swapped{color:var(--p-blue);background:rgba(95,149,184,.12);border-color:rgba(95,149,184,.3)}
+.swap-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:300;display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .25s;backdrop-filter:blur(4px)}
+.swap-modal-overlay.open{opacity:1;pointer-events:all}
+.swap-modal-card{background:#363d42;border-radius:22px 22px 0 0;width:100%;max-width:520px;padding:0 0 32px;border:1px solid rgba(255,255,255,.12);border-bottom:none;transform:translateY(100%);transition:transform .3s cubic-bezier(.32,1,.23,1)}
+.swap-modal-overlay.open .swap-modal-card{transform:translateY(0)}
+.swap-option{background:var(--card2);border:1.5px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:10px;cursor:pointer;transition:all .15s}
+.swap-option:active{opacity:.75}
+.swap-option.is-current{border-color:var(--p-blue);background:rgba(95,149,184,.1)}
+.swap-option-name{font-size:15px;font-weight:600;color:var(--text);margin-bottom:4px}
+.swap-option-detail{font-size:12px;color:var(--text3);line-height:1.5}
+.swap-reset{width:100%;padding:10px 0 0;text-align:center;font-size:13px;color:var(--text3);background:none;border:none;cursor:pointer;display:block}
+
 </style>
 </head>
 <body>
@@ -286,6 +301,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 </div>
 
 <div id="page-active" class="page">
+  <div id="aw-workout" style="display:none"></div>
   <div id="aw-idle-state" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:70vh;padding:32px 24px;text-align:center">
     <svg width="80" height="80" viewBox="0 0 24 24" fill="none" style="margin-bottom:28px;opacity:.9" xmlns="http://www.w3.org/2000/svg">
       <rect x="1.5" y="10.5" width="3" height="3" rx="1" fill="#7DB85F"/>
@@ -331,6 +347,18 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
     </div>
     <div class="modal-media" id="modal-media"></div>
     <div class="modal-note" id="modal-note"></div>
+  </div>
+</div>
+
+<!-- SWAP MODAL -->
+<div class="swap-modal-overlay" id="swap-modal-overlay">
+  <div class="swap-modal-card">
+    <div class="modal-drag-handle"></div>
+    <div class="modal-header">
+      <div class="modal-title" id="swap-modal-title">Swap exercise</div>
+      <button class="modal-close" onclick="closeSwapModal()">✕</button>
+    </div>
+    <div style="padding:0 16px" id="swap-modal-body"></div>
   </div>
 </div>
 
@@ -1254,6 +1282,11 @@ const WEIGHTED_EXERCISES = {
   'Pallof press':              10,
   'Bent-over DB row':          15,
   'DB row':                    10,
+  // Swap alternatives
+  'Sumo squat':                15,
+  'Split squat':               10,
+  'DB bicep curl (seated)':    10,
+  'DB lateral raise (seated)':  8,
 };
 
 function getWeights() {
@@ -1266,6 +1299,82 @@ function getExerciseWeight(name) {
   const w = getWeights();
   return w[name] ?? WEIGHTED_EXERCISES[name];
 }
+
+// ─── SWAP SYSTEM ──────────────────────────────────────────────────────────────
+
+const SWAP_CAT = {
+  // Banded warmup
+  'Banded clamshells':             'warmup-banded',
+  // Lower body weight
+  'Goblet squat':                  'lower-weight',
+  'Goblet squat — light':          'lower-weight',
+  'DB Romanian deadlift':          'lower-weight',
+  'Single-leg press / step-up':    'lower-weight',
+  // Upper body weight
+  'Seated cable or DB row':        'upper-weight',
+  'DB overhead press (seated)':    'upper-weight',
+  'Bent-over DB row':              'upper-weight',
+  'DB row':                        'upper-weight',
+  'Wall / kneeling push-up':       'upper-weight',
+  'Wall push-up':                  'upper-weight',
+  // Core stability
+  'Pallof press':                  'core-stability',
+  'Bird-dog':                      'core-stability',
+  // Glute bodyweight
+  'Glute kickback with pulse':     'glute-bodyweight',
+  'Glute kickback — bodyweight':   'glute-bodyweight',
+  'Side-lying clamshell':          'glute-bodyweight',
+  // Stretch
+  "Cat-cow + child's pose":        'stretch',
+  'Hip flexor stretch':            'stretch',
+  "Cat-cow × 10":                  'stretch',
+  "Child's pose":                  'stretch',
+  'Pigeon pose (modified)':        'stretch',
+  'Side-lying quad stretch':       'stretch',
+  'Seated butterfly':              'stretch',
+  '90/90 hip rotations':           'stretch',
+  // Breathwork
+  'Belly breathing':               'breathwork',
+  'Diaphragmatic breathing':       'breathwork',
+};
+
+const SWAP_LIBRARY = {
+  'warmup-banded': [
+    {n:'Leg swings', d:'10 each direction · front-to-back then side-to-side · hold a wall for balance', gif:null},
+    {n:'Bodyweight sumo squat hold', d:'10 slow reps · feet wide, toes out · pause 2 sec at the bottom each rep', gif:null},
+  ],
+  'lower-weight': [
+    {n:'Sumo squat', d:'3 × 12 · feet wide, toes out · DB held at chest or hanging · pause at the bottom', gif:'sumo-squat.gif'},
+    {n:'Split squat', d:'3 × 10 each side · bodyweight or light DB · keep front shin vertical · slow descent', gif:'split-squat.gif'},
+  ],
+  'upper-weight': [
+    {n:'DB bicep curl (seated)', d:'3 × 12 · seated, palms facing up · full range of motion · slow on the way down', gif:'bicep-curl-seated.gif'},
+    {n:'DB lateral raise (seated)', d:'3 × 12 · light weight · lift to shoulder height · no shrugging · controlled', gif:'lateral-raise-seated.gif'},
+  ],
+  'core-stability': [
+    {n:'Fire hydrants', d:'3 × 12 each side · on all fours · lift knee out to the side · keep hips level', gif:'fire-hydrants.gif'},
+    {n:'Side-lying leg lifts', d:'3 × 15 each side · top leg straight · lift slowly · lower with control', gif:'side-lying-leg-lifts.gif'},
+  ],
+  'glute-bodyweight': [
+    {n:'Fire hydrants', d:'3 × 12 each side · on all fours · lift knee out to the side · keep hips level', gif:'fire-hydrants.gif'},
+    {n:'Donkey kicks', d:'3 × 12 each side · on all fours · kick heel toward ceiling · squeeze the glute at the top', gif:'donkey-kicks.gif'},
+  ],
+  'stretch': [
+    {n:'Figure-4 stretch (seated)', d:'30 sec each side · cross ankle over opposite knee · sit tall · lean slightly forward for more depth', gif:'figure-4-stretch.gif'},
+    {n:'Seated hamstring stretch', d:'30 sec each side · one leg extended · hinge forward at the hip · keep your back flat', gif:'seated-hamstring-stretch.gif'},
+  ],
+  'breathwork': [
+    {n:'Seated side stretch', d:'30 sec each side · one arm overhead · gentle lean away · breathe into the stretch', gif:null},
+    {n:'Rib breathing', d:'10 slow breaths · hands on your ribs · expand sideways and back · slow exhale through the mouth', gif:null},
+  ],
+  'cardio': [
+    {n:'Easy 5 min walk', d:'Flat surface · comfortable pace · no rush', gif:null},
+    {n:'Seated march', d:'2 min · alternate lifting knees while seated · let arms swing naturally', gif:null},
+  ],
+};
+
+function getSwaps() { return JSON.parse(localStorage.getItem('wt_swaps') || '{}'); }
+function saveSwaps(s) { localStorage.setItem('wt_swaps', JSON.stringify(s)); }
 
 // ─── MODAL ────────────────────────────────────────────────────────────────────
 
@@ -1311,12 +1420,16 @@ document.getElementById('modal-overlay').addEventListener('click', function(e) {
 
 let activeDay = null;
 let activeBB = 0;
-let activeWorkoutState = {}; // {exerciseName: {done, feedback}}
+let activeWorkoutState = {}; // keyed by 'gIdx_iIdx'
+let swapModalGIdx = -1;
+let swapModalIIdx = -1;
 
 function startActiveWorkout(day, bb) {
   activeDay = day;
   activeBB = bb;
   activeWorkoutState = {};
+  document.getElementById('aw-idle-state').style.display = 'none';
+  document.getElementById('aw-workout').style.display = 'block';
   _renderActiveWorkout();
   showPage('active');
 }
@@ -1325,6 +1438,7 @@ function _renderActiveWorkout() {
   const tabIdx = getTabIndex(activeDay.id, activeBB);
   const section = activeDay.sections[tabIdx];
   const btnCls = activeDay.type === 'shift' ? 'btn-amber' : activeDay.type === 'rest' ? 'btn-gray' : 'btn-primary';
+  const swaps = getSwaps();
 
   let html = `
     <button class="back-btn" onclick="showPage('guide')">
@@ -1336,29 +1450,37 @@ function _renderActiveWorkout() {
       <div class="workout-title">${activeDay.name}</div>
       <div class="workout-meta">${activeDay.tabs[tabIdx]}</div>
     </div>
-    <div id="aw-progress" class="aw-progress"></div>
-    <div class="card">`;
+    <div id="aw-progress" class="aw-progress"></div>`;
 
   section.groups.forEach((g, gIdx) => {
     const headCls = colHeadClass(g.head || '');
-    html += `<div class="section-group"><div class="col-head ${headCls}">${g.head || ''}</div>`;
+    html += `<div class="card" style="margin-bottom:12px"><div class="col-head ${headCls}" style="margin:-4px -4px 8px">${g.head || ''}</div>`;
 
     g.items.forEach((it, iIdx) => {
-      const isWeighted = WEIGHTED_EXERCISES.hasOwnProperty(it.n);
-      const hasRef = REFS.hasOwnProperty(it.n);
-      const state = activeWorkoutState[it.n];
+      const stateKey = `${gIdx}_${iIdx}`;
+      const state = activeWorkoutState[stateKey];
       const isDone = state?.done;
       const selFb = state?.feedback;
+
+      const swap = swaps[it.n];
+      const ex = swap || it;
+      const isSwapped = !!swap;
+      const cat = SWAP_CAT[it.n];
+      const hasSwapOptions = !!(cat && SWAP_LIBRARY[cat]?.length);
+      const isWeighted = WEIGHTED_EXERCISES.hasOwnProperty(ex.n);
+      const hasRef = swap
+        ? (swap.gif && swap.gif !== 'NEEDS_GIF' && false) // no GIFs yet for subs
+        : REFS.hasOwnProperty(it.n);
 
       html += `<div class="aw-exercise${isDone ? ' aw-done' : ''}" id="aw-ex-${gIdx}-${iIdx}">
         <div class="aw-ex-top">
           <div class="aw-ex-info">
-            <div class="aw-ex-name">${it.n}</div>
-            ${it.d ? `<div class="aw-ex-detail">${it.d}</div>` : ''}
+            <div class="aw-ex-name">${ex.n}${isSwapped ? `<span style="font-size:10px;color:var(--p-blue);font-weight:600;margin-left:6px;opacity:.85">swapped</span>` : ''}</div>
+            ${ex.d ? `<div class="aw-ex-detail">${ex.d}</div>` : (it.d ? `<div class="aw-ex-detail">${it.d}</div>` : '')}
           </div>`;
 
       if (isWeighted) {
-        const w = getExerciseWeight(it.n);
+        const w = getExerciseWeight(ex.n);
         html += `<div class="aw-weight-badge" id="aw-wt-${gIdx}-${iIdx}">${w} lbs</div>`;
       } else {
         html += `<button class="aw-check-btn${isDone ? ' checked' : ''}" onclick="checkExercise(${gIdx},${iIdx})">${isDone ? '✓' : ''}</button>`;
@@ -1366,9 +1488,16 @@ function _renderActiveWorkout() {
 
       html += `</div>`;
 
-      if (hasRef) {
-        const safeName = it.n.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-        html += `<button class="ref-btn" onclick="openModal('${safeName}')">▶ Movement ref</button>`;
+      if (hasRef || hasSwapOptions) {
+        html += `<div style="display:flex;gap:6px;margin-top:5px;flex-wrap:wrap">`;
+        if (hasRef) {
+          const safeName = it.n.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+          html += `<button class="ref-btn" onclick="openModal('${safeName}')">▶ Movement ref</button>`;
+        }
+        if (hasSwapOptions) {
+          html += `<button class="swap-btn${isSwapped ? ' swapped' : ''}" onclick="openSwapModal(${gIdx},${iIdx})">⇄ ${isSwapped ? 'Change swap' : 'Swap'}</button>`;
+        }
+        html += `</div>`;
       }
 
       if (isWeighted) {
@@ -1388,33 +1517,35 @@ function _renderActiveWorkout() {
     html += `</div>`;
   });
 
-  html += `</div>
-    <div style="height:16px"></div>
+  html += `<div style="height:16px"></div>
     <div class="complete-bar">
       <button class="btn ${btnCls}" onclick="logActiveWorkout()">Log Workout</button>
     </div>`;
 
-  document.getElementById('page-active').innerHTML = html;
+  document.getElementById('aw-workout').innerHTML = html;
   _updateProgress();
 }
 
 function _updateProgress() {
+  if (!activeDay) return;
   const section = activeDay.sections[getTabIndex(activeDay.id, activeBB)];
-  const all = section.groups.flatMap(g => g.items);
-  const done = all.filter(it => activeWorkoutState[it.n]?.done).length;
+  const total = section.groups.reduce((s, g) => s + g.items.length, 0);
+  const done = Object.values(activeWorkoutState).filter(s => s.done).length;
   const el = document.getElementById('aw-progress');
-  if (el) el.textContent = done === all.length && all.length > 0
-    ? `All ${all.length} done — ready to log!`
-    : `${done} of ${all.length} done`;
+  if (el) el.textContent = done === total && total > 0
+    ? `All ${total} done — ready to log!`
+    : `${done} of ${total} done`;
 }
 
 function recordFeedback(gIdx, iIdx, feedback) {
+  const stateKey = `${gIdx}_${iIdx}`;
   const section = activeDay.sections[getTabIndex(activeDay.id, activeBB)];
-  const exerciseName = section.groups[gIdx].items[iIdx].n;
+  const originalName = section.groups[gIdx].items[iIdx].n;
+  const swap = getSwaps()[originalName];
+  const exerciseName = swap ? swap.n : originalName;
 
-  activeWorkoutState[exerciseName] = {done: true, feedback};
+  activeWorkoutState[stateKey] = {done: true, feedback};
 
-  // Adjust and save weight
   const weights = getWeights();
   const current = getExerciseWeight(exerciseName);
   let next = current;
@@ -1423,7 +1554,6 @@ function recordFeedback(gIdx, iIdx, feedback) {
   weights[exerciseName] = next;
   saveWeights(weights);
 
-  // Update DOM without re-rendering
   const el = document.getElementById(`aw-ex-${gIdx}-${iIdx}`);
   if (el) {
     el.classList.add('aw-done');
@@ -1441,10 +1571,8 @@ function recordFeedback(gIdx, iIdx, feedback) {
 }
 
 function checkExercise(gIdx, iIdx) {
-  const section = activeDay.sections[getTabIndex(activeDay.id, activeBB)];
-  const exerciseName = section.groups[gIdx].items[iIdx].n;
-  activeWorkoutState[exerciseName] = {done: true, feedback: null};
-
+  const stateKey = `${gIdx}_${iIdx}`;
+  activeWorkoutState[stateKey] = {done: true, feedback: null};
   const el = document.getElementById(`aw-ex-${gIdx}-${iIdx}`);
   if (el) {
     el.classList.add('aw-done');
@@ -1459,8 +1587,71 @@ function logActiveWorkout() {
   showToast('Workout logged! 🎉');
   renderHome();
   renderHistory();
+  activeDay = null;
+  activeWorkoutState = {};
+  document.getElementById('aw-idle-state').style.display = '';
+  document.getElementById('aw-workout').style.display = 'none';
+  document.getElementById('aw-workout').innerHTML = '';
   setTimeout(() => showPage('home'), 400);
 }
+
+function openSwapModal(gIdx, iIdx) {
+  swapModalGIdx = gIdx;
+  swapModalIIdx = iIdx;
+  const section = activeDay.sections[getTabIndex(activeDay.id, activeBB)];
+  const originalName = section.groups[gIdx].items[iIdx].n;
+  const cat = SWAP_CAT[originalName];
+  const options = SWAP_LIBRARY[cat] || [];
+  const currentSwap = getSwaps()[originalName];
+
+  document.getElementById('swap-modal-title').textContent = `Swap · ${originalName}`;
+
+  let body = options.map((opt, i) => {
+    const isCurrent = currentSwap && currentSwap.n === opt.n;
+    return `<div class="swap-option${isCurrent ? ' is-current' : ''}" onclick="selectSwap(${i})">
+      <div class="swap-option-name">${opt.n}${isCurrent ? `<span style="font-size:10px;color:var(--p-blue);font-weight:500;margin-left:6px">· current</span>` : ''}</div>
+      <div class="swap-option-detail">${opt.d}</div>
+    </div>`;
+  }).join('');
+
+  if (currentSwap) {
+    body += `<button class="swap-reset" onclick="clearSwap()">↩ Reset to original (${originalName})</button>`;
+  }
+
+  document.getElementById('swap-modal-body').innerHTML = body;
+  document.getElementById('swap-modal-overlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function selectSwap(optIdx) {
+  const section = activeDay.sections[getTabIndex(activeDay.id, activeBB)];
+  const originalName = section.groups[swapModalGIdx].items[swapModalIIdx].n;
+  const cat = SWAP_CAT[originalName];
+  const swaps = getSwaps();
+  swaps[originalName] = SWAP_LIBRARY[cat][optIdx];
+  saveSwaps(swaps);
+  closeSwapModal();
+  _renderActiveWorkout();
+}
+
+function clearSwap() {
+  const section = activeDay.sections[getTabIndex(activeDay.id, activeBB)];
+  const originalName = section.groups[swapModalGIdx].items[swapModalIIdx].n;
+  const swaps = getSwaps();
+  delete swaps[originalName];
+  saveSwaps(swaps);
+  closeSwapModal();
+  _renderActiveWorkout();
+}
+
+function closeSwapModal() {
+  document.getElementById('swap-modal-overlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+document.getElementById('swap-modal-overlay').addEventListener('click', function(e) {
+  if (e.target === this) closeSwapModal();
+});
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 
