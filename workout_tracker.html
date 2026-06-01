@@ -1527,6 +1527,10 @@ function _renderActiveWorkout() {
             ${ex.d ? `<div class="aw-ex-detail">${ex.d}</div>` : (it.d ? `<div class="aw-ex-detail">${it.d}</div>` : '')}
           </div>`;
 
+      if (hasSwapOptions) {
+        html += `<button class="swap-btn${isSwapped ? ' swapped' : ''}" onclick="openSwapModal(${gIdx},${iIdx})" style="margin-left:8px;flex-shrink:0;align-self:flex-start">⇄</button>`;
+      }
+
       if (isWeighted) {
         const w = getExerciseWeight(ex.n);
         html += `<div class="aw-weight-badge" id="aw-wt-${gIdx}-${iIdx}">${w} lbs</div>`;
@@ -1536,16 +1540,9 @@ function _renderActiveWorkout() {
 
       html += `</div>`;
 
-      if (hasRef || hasSwapOptions) {
-        html += `<div style="display:flex;gap:6px;margin-top:5px;flex-wrap:wrap">`;
-        if (hasRef) {
-          const refName = (swap ? swap.n : it.n).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-          html += `<button class="ref-btn" onclick="openModal('${refName}')">▶ Movement ref</button>`;
-        }
-        if (hasSwapOptions) {
-          html += `<button class="swap-btn${isSwapped ? ' swapped' : ''}" onclick="openSwapModal(${gIdx},${iIdx})">⇄ ${isSwapped ? 'Change swap' : 'Swap'}</button>`;
-        }
-        html += `</div>`;
+      if (hasRef) {
+        const refName = (swap ? swap.n : it.n).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+        html += `<div style="margin-top:5px"><button class="ref-btn" onclick="openModal('${refName}')">▶ Movement ref</button></div>`;
       }
 
       if (isWeighted) {
