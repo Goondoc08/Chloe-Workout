@@ -219,13 +219,13 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 .aw-fb-light.selected{background:rgba(125,184,95,.25);border-color:#7DB85F}
 .aw-fb-good.selected{background:rgba(95,149,184,.25);border-color:#5F95B8}
 .aw-fb-heavy.selected{background:rgba(184,147,95,.25);border-color:#B8935F}
-.aw-check-btn{width:28px;height:28px;border-radius:50%;border:2px solid var(--border);background:none;color:var(--p-green);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s}
+.aw-check-btn{display:inline-flex;align-items:center;justify-content:center;padding:3px 9px;border-radius:6px;border:1.5px solid rgba(125,184,95,.5);background:rgba(125,184,95,.08);color:var(--p-green);font-size:11px;font-weight:600;cursor:pointer;flex-shrink:0;transition:all .15s;min-width:28px}
 .aw-check-btn.checked{background:var(--p-green);border-color:var(--p-green);color:#fff}
 
 /* SWAP */
-.swap-btn{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:var(--text3);background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:6px;padding:3px 9px;cursor:pointer;letter-spacing:.02em;transition:all .15s}
+.swap-btn{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:var(--p-blue);background:rgba(95,149,184,.08);border:1.5px solid rgba(95,149,184,.4);border-radius:6px;padding:3px 9px;cursor:pointer;letter-spacing:.02em;transition:all .15s;flex-shrink:0}
 .swap-btn:active{opacity:.7}
-.swap-btn.swapped{color:var(--p-blue);background:rgba(95,149,184,.12);border-color:rgba(95,149,184,.3)}
+.swap-btn.swapped{background:rgba(95,149,184,.2);border-color:var(--p-blue)}
 .swap-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:300;display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .25s;backdrop-filter:blur(4px)}
 .swap-modal-overlay.open{opacity:1;pointer-events:all}
 .swap-modal-card{background:#363d42;border-radius:22px 22px 0 0;width:100%;max-width:520px;padding:0 0 32px;border:1px solid rgba(255,255,255,.12);border-bottom:none;transform:translateY(100%);transition:transform .3s cubic-bezier(.32,1,.23,1)}
