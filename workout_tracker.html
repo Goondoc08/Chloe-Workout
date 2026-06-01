@@ -1360,98 +1360,68 @@ function getExerciseWeight(name) {
 
 // ─── SWAP SYSTEM ──────────────────────────────────────────────────────────────
 
-const SWAP_CAT = {
-  // Banded warmup
-  'Banded clamshells':             'warmup-banded',
-  // Lower body weight
-  'Goblet squat':                  'lower-weight',
-  'Goblet squat — light':          'lower-weight',
-  'DB Romanian deadlift':          'lower-weight',
-  'Single-leg press / step-up':    'lower-weight',
-  // Upper body weight
-  'Seated cable or DB row':        'upper-weight',
-  'DB overhead press (seated)':    'upper-weight',
-  'Bent-over DB row':              'upper-weight',
-  'DB row':                        'upper-weight',
-  'Wall / kneeling push-up':       'upper-weight',
-  'Wall push-up':                  'upper-weight',
-  // Core stability
-  'Pallof press':                  'core-stability',
-  'Bird-dog':                      'core-stability',
-  // Glute bodyweight
-  'Glute kickback with pulse':     'glute-bodyweight',
-  'Glute kickback — bodyweight':   'glute-bodyweight',
-  'Side-lying clamshell':          'glute-bodyweight',
-  // Stretch
-  "Cat-cow + child's pose":        'stretch',
-  'Hip flexor stretch':            'stretch',
-  "Cat-cow × 10":                  'stretch',
-  "Child's pose":                  'stretch',
-  'Pigeon pose (modified)':        'stretch',
-  'Side-lying quad stretch':       'stretch',
-  'Seated butterfly':              'stretch',
-  '90/90 hip rotations':           'stretch',
-  // Breathwork
-  'Belly breathing':               'breathwork',
-  'Diaphragmatic breathing':       'breathwork',
-  // Pelvic / therapeutic warmup
-  'Pelvic tilts':                  'pelvic-core',
-  // General warmup bodyweight
-  'Hip circles × 10':              'warmup-bodyweight',
-  'Hip circles + leg swings':      'warmup-bodyweight',
-  // Upper body mobility / stretch
-  'Thoracic spine rotations':      'stretch',
-  'Neck rolls + shoulder circles': 'stretch',
-  // Cardio warmup
-  '5 min bike':                    'cardio',
-  '5 min bike or row':             'cardio',
-  '5 min easy warm-up spin':       'cardio',
-  '5 min flat warm-up walk':       'cardio',
+// Flat lookup of all swap alternative exercises
+const SWAP_EXERCISES = {
+  'Leg swings':                    {d:'10 each direction · front-to-back then side-to-side · hold a wall for balance'},
+  'Bodyweight sumo squat hold':    {d:'10 slow reps · feet wide, toes out · pause 2 sec at the bottom each rep'},
+  'Ankle circles':                 {d:'10 each direction per foot · seated or standing · full slow circles'},
+  'Shoulder rolls':                {d:'10 forward, 10 back · slow and deliberate · let the shoulders fully drop'},
+  'Standing cat-cow':              {d:'10 reps · hands on thighs, feet hip-width · arch and round slowly · breathe through each'},
+  'Seated pelvic circles':         {d:'10 each direction · seated on bench or chair · gently circle the pelvis · slow and controlled'},
+  'Sumo squat':                    {d:'3 × 12 · feet wide, toes out · DB held at chest or hanging · pause at the bottom'},
+  'Dumbbell Bulgarian split squat':{d:'3 × 10 each side · rear foot elevated · front shin vertical · slow descent · light DB each hand'},
+  'RDL to shoulder press':         {d:'3 × 10 · hinge into RDL then stand and press overhead · one fluid movement · core tight'},
+  'Dumbbell squat curl and press': {d:'3 × 10 · squat down, stand and curl, then press overhead · control each phase · light weight'},
+  'DB bicep curl (seated)':        {d:'3 × 12 · seated, palms facing up · full range of motion · slow on the way down'},
+  'DB lateral raise (seated)':     {d:'3 × 12 · light weight · lift to shoulder height · no shrugging · controlled descent'},
+  'Fire hydrants':                 {d:'3 × 12 each side · on all fours · lift knee out to the side · keep hips level'},
+  'Side-lying leg lifts':          {d:'3 × 15 each side · top leg straight · lift slowly · lower with control'},
+  'Donkey kicks':                  {d:'3 × 12 each side · on all fours · kick heel toward ceiling · squeeze glute at the top'},
+  'Figure-4 stretch (seated)':     {d:'30 sec each side · cross ankle over opposite knee · sit tall · lean slightly forward'},
+  'Seated hamstring stretch':      {d:'30 sec each side · one leg extended · hinge forward at the hip · keep your back flat'},
+  'Seated side stretch':           {d:'30 sec each side · one arm overhead · gentle lean away · breathe into the stretch'},
+  'Rib breathing':                 {d:'10 slow breaths · hands on ribs · expand sideways and back · slow exhale through the mouth'},
+  'Easy 5 min walk':               {d:'Flat surface · comfortable pace · no rush'},
+  'Seated march':                  {d:'2 min · alternate lifting knees while seated · let arms swing naturally'},
 };
 
-const SWAP_LIBRARY = {
-  'pelvic-core': [
-    {n:'Standing cat-cow', d:'10 reps · hands on thighs, feet hip-width · arch and round your back slowly · breathe through each one', gif:null},
-    {n:'Seated pelvic circles', d:'10 each direction · seated on a bench or chair · gently circle your pelvis · slow and controlled', gif:null},
-  ],
-  'warmup-bodyweight': [
-    {n:'Ankle circles', d:'10 each direction per foot · seated or standing · helps loosen up the whole chain', gif:null},
-    {n:'Shoulder rolls', d:'10 forward, 10 back · slow and deliberate · let the shoulders fully drop between reps', gif:null},
-  ],
-  'warmup-banded': [
-    {n:'Leg swings', d:'10 each direction · front-to-back then side-to-side · hold a wall for balance', gif:null},
-    {n:'Bodyweight sumo squat hold', d:'10 slow reps · feet wide, toes out · pause 2 sec at the bottom each rep', gif:null},
-  ],
-  'lower-weight': [
-    {n:'Sumo squat', d:'3 × 12 · feet wide, toes out · DB held at chest or hanging · pause at the bottom', gif:'sumo-squat.gif'},
-    {n:'Dumbbell Bulgarian split squat', d:'3 × 10 each side · rear foot elevated · front shin vertical · slow descent · light DB each hand', gif:'Dumbbell-Bulgarian-Split-Squat.gif'},
-    {n:'RDL to shoulder press', d:'3 × 10 · hinge into RDL then drive up and press overhead · one fluid movement', gif:'rdl-shoulder-press.gif'},
-    {n:'Dumbbell squat curl and press', d:'3 × 10 · squat down, stand and curl, then press overhead · control each phase · light weight', gif:'squat-curl-press.gif'},
-  ],
-  'upper-weight': [
-    {n:'DB bicep curl (seated)', d:'3 × 12 · seated, palms facing up · full range of motion · slow on the way down', gif:'bicep-curl-seated.gif'},
-    {n:'DB lateral raise (seated)', d:'3 × 12 · light weight · lift to shoulder height · no shrugging · controlled', gif:'lateral-raise-seated.gif'},
-  ],
-  'core-stability': [
-    {n:'Fire hydrants', d:'3 × 12 each side · on all fours · lift knee out to the side · keep hips level', gif:'fire-hydrants.gif'},
-    {n:'Side-lying leg lifts', d:'3 × 15 each side · top leg straight · lift slowly · lower with control', gif:'side-lying-leg-lifts.gif'},
-  ],
-  'glute-bodyweight': [
-    {n:'Fire hydrants', d:'3 × 12 each side · on all fours · lift knee out to the side · keep hips level', gif:'fire-hydrants.gif'},
-    {n:'Donkey kicks', d:'3 × 12 each side · on all fours · kick heel toward ceiling · squeeze the glute at the top', gif:'donkey-kicks.gif'},
-  ],
-  'stretch': [
-    {n:'Figure-4 stretch (seated)', d:'30 sec each side · cross ankle over opposite knee · sit tall · lean slightly forward for more depth', gif:'figure-4-stretch.gif'},
-    {n:'Seated hamstring stretch', d:'30 sec each side · one leg extended · hinge forward at the hip · keep your back flat', gif:'seated-hamstring-stretch.gif'},
-  ],
-  'breathwork': [
-    {n:'Seated side stretch', d:'30 sec each side · one arm overhead · gentle lean away · breathe into the stretch', gif:null},
-    {n:'Rib breathing', d:'10 slow breaths · hands on your ribs · expand sideways and back · slow exhale through the mouth', gif:null},
-  ],
-  'cardio': [
-    {n:'Easy 5 min walk', d:'Flat surface · comfortable pace · no rush', gif:null},
-    {n:'Seated march', d:'2 min · alternate lifting knees while seated · let arms swing naturally', gif:null},
-  ],
+// Exactly 2 curated alternatives per exercise
+const SWAP_PAIRS = {
+  'Banded clamshells':             ['Leg swings', 'Bodyweight sumo squat hold'],
+  'Goblet squat':                  ['Sumo squat', 'Dumbbell squat curl and press'],
+  'Goblet squat — light':          ['Sumo squat', 'Dumbbell squat curl and press'],
+  'DB Romanian deadlift':          ['RDL to shoulder press', 'Dumbbell Bulgarian split squat'],
+  'Single-leg press / step-up':    ['Dumbbell Bulgarian split squat', 'Sumo squat'],
+  'Seated cable or DB row':        ['DB bicep curl (seated)', 'DB lateral raise (seated)'],
+  'DB overhead press (seated)':    ['DB lateral raise (seated)', 'Dumbbell squat curl and press'],
+  'Bent-over DB row':              ['DB bicep curl (seated)', 'DB lateral raise (seated)'],
+  'DB row':                        ['DB bicep curl (seated)', 'DB lateral raise (seated)'],
+  'Wall / kneeling push-up':       ['DB lateral raise (seated)', 'DB bicep curl (seated)'],
+  'Wall push-up':                  ['DB lateral raise (seated)', 'DB bicep curl (seated)'],
+  'Pallof press':                  ['Fire hydrants', 'Side-lying leg lifts'],
+  'Bird-dog':                      ['Fire hydrants', 'Side-lying leg lifts'],
+  'Glute kickback with pulse':     ['Donkey kicks', 'Fire hydrants'],
+  'Glute kickback — bodyweight':   ['Donkey kicks', 'Fire hydrants'],
+  'Side-lying clamshell':          ['Side-lying leg lifts', 'Fire hydrants'],
+  "Cat-cow + child's pose":        ['Figure-4 stretch (seated)', 'Seated hamstring stretch'],
+  "Cat-cow × 10":                  ['Figure-4 stretch (seated)', 'Seated hamstring stretch'],
+  "Child's pose":                  ['Seated hamstring stretch', 'Figure-4 stretch (seated)'],
+  'Hip flexor stretch':            ['Figure-4 stretch (seated)', 'Seated hamstring stretch'],
+  'Pigeon pose (modified)':        ['Figure-4 stretch (seated)', 'Seated hamstring stretch'],
+  'Side-lying quad stretch':       ['Seated hamstring stretch', 'Figure-4 stretch (seated)'],
+  'Seated butterfly':              ['Figure-4 stretch (seated)', 'Seated hamstring stretch'],
+  '90/90 hip rotations':           ['Figure-4 stretch (seated)', 'Seated hamstring stretch'],
+  'Thoracic spine rotations':      ['Seated side stretch', 'Rib breathing'],
+  'Neck rolls + shoulder circles': ['Seated side stretch', 'Rib breathing'],
+  'Belly breathing':               ['Seated side stretch', 'Rib breathing'],
+  'Diaphragmatic breathing':       ['Seated side stretch', 'Rib breathing'],
+  'Pelvic tilts':                  ['Standing cat-cow', 'Seated pelvic circles'],
+  'Hip circles × 10':              ['Ankle circles', 'Leg swings'],
+  'Hip circles + leg swings':      ['Ankle circles', 'Bodyweight sumo squat hold'],
+  '5 min bike':                    ['Easy 5 min walk', 'Seated march'],
+  '5 min bike or row':             ['Easy 5 min walk', 'Seated march'],
+  '5 min easy warm-up spin':       ['Easy 5 min walk', 'Seated march'],
+  '5 min flat warm-up walk':       ['Seated march', 'Ankle circles'],
 };
 
 function getSwaps() { return JSON.parse(localStorage.getItem('wt_swaps') || '{}'); }
@@ -1546,8 +1516,7 @@ function _renderActiveWorkout() {
       const swap = swaps[it.n];
       const ex = swap || it;
       const isSwapped = !!swap;
-      const cat = SWAP_CAT[it.n];
-      const hasSwapOptions = !!(cat && SWAP_LIBRARY[cat]?.length);
+      const hasSwapOptions = SWAP_PAIRS.hasOwnProperty(it.n);
       const isWeighted = WEIGHTED_EXERCISES.hasOwnProperty(ex.n);
       const hasRef = REFS.hasOwnProperty(swap ? swap.n : it.n);
 
@@ -1679,8 +1648,8 @@ function openSwapModal(gIdx, iIdx) {
   swapModalIIdx = iIdx;
   const section = activeDay.sections[getTabIndex(activeDay.id, activeBB)];
   const originalName = section.groups[gIdx].items[iIdx].n;
-  const cat = SWAP_CAT[originalName];
-  const options = SWAP_LIBRARY[cat] || [];
+  const pairs = SWAP_PAIRS[originalName] || [];
+  const options = pairs.map(name => ({n: name, ...(SWAP_EXERCISES[name] || {})}));
   const currentSwap = getSwaps()[originalName];
 
   document.getElementById('swap-modal-title').textContent = `Swap · ${originalName}`;
@@ -1705,9 +1674,9 @@ function openSwapModal(gIdx, iIdx) {
 function selectSwap(optIdx) {
   const section = activeDay.sections[getTabIndex(activeDay.id, activeBB)];
   const originalName = section.groups[swapModalGIdx].items[swapModalIIdx].n;
-  const cat = SWAP_CAT[originalName];
   const swaps = getSwaps();
-  swaps[originalName] = SWAP_LIBRARY[cat][optIdx];
+  const exerciseName = SWAP_PAIRS[originalName][optIdx];
+  swaps[originalName] = {n: exerciseName, ...(SWAP_EXERCISES[exerciseName] || {})};
   saveSwaps(swaps);
   closeSwapModal();
   _renderActiveWorkout();
