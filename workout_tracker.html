@@ -269,6 +269,16 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
     </div>
   </div>
 
+  <!-- WHATS NEW BANNER -->
+  <div id="whats-new-banner" style="display:none;margin-bottom:16px;padding:14px 16px;border-radius:14px;background:linear-gradient(135deg,rgba(125,184,95,.12),rgba(95,149,184,.08));border:1px solid rgba(125,184,95,.3);position:relative">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+      <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--p-green)">What's new</span>
+      <span style="font-size:10px;color:var(--text3)" id="wnb-version"></span>
+    </div>
+    <div id="wnb-text" style="font-size:13px;color:var(--text2);line-height:1.6"></div>
+    <button onclick="dismissWhatsNew()" style="position:absolute;top:10px;right:12px;background:none;border:none;color:var(--text3);font-size:16px;cursor:pointer;line-height:1">✕</button>
+  </div>
+
   <!-- BB INPUT -->
   <div class="card">
     <div class="card-title">Today's Body Battery</div>
@@ -841,6 +851,31 @@ function getBBReason(bb, dayId) {
   };
   const ti = getTabIndex(dayId, bb);
   return reasons[dayId]?.[ti] || '';
+}
+
+// ─── CHANGELOG ───────────────────────────────────────────────────────────────
+
+const APP_VERSION = '1.1';
+const CHANGELOG = {
+  '1.1': `Pushed a little update to your workout app!\n\nThe active workout page got some love — exercises now have a proper checkbox so you can tick them off as you go. Weighted lifts still have the weight feedback buttons (too light / good / too heavy), and when you log a workout as complete, all of that gets saved.\n\nBest part: you can now tap any workout in your History to see the full breakdown — what you did, what you skipped, and how the weights felt. Locked in forever so you can track progress over time.`
+};
+
+function initWhatsNew() {
+  const seen = localStorage.getItem('wt_seen_version');
+  if (seen === APP_VERSION) return;
+  const notes = CHANGELOG[APP_VERSION];
+  if (!notes) return;
+  document.getElementById('wnb-version').textContent = `v${APP_VERSION}`;
+  document.getElementById('wnb-text').innerHTML = notes.replace(/\n\n/g, '<br><br>').replace(/\n/g, '<br>');
+  document.getElementById('whats-new-banner').style.display = 'block';
+}
+
+function dismissWhatsNew() {
+  localStorage.setItem('wt_seen_version', APP_VERSION);
+  const el = document.getElementById('whats-new-banner');
+  el.style.transition = 'opacity .3s';
+  el.style.opacity = '0';
+  setTimeout(() => { el.style.display = 'none'; el.style.opacity = ''; }, 320);
 }
 
 // ─── STORAGE ──────────────────────────────────────────────────────────────────
@@ -1839,6 +1874,7 @@ if (savedBB) document.getElementById('bb-slider').value = savedBB;
 renderHome();
 renderGuide();
 renderHistory();
+initWhatsNew();
 // Seed initial history state so back button has somewhere to go
 history.replaceState({page: 'home'}, '', '');
 </script>
