@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Workout">
 <title>Workout Tracker</title>
-<link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600&family=Caveat:wght@700&display=swap" rel="stylesheet">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#2C3338">
 <style>
@@ -352,6 +352,20 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
     <div id="history-list"></div>
   </div>
 </div>
+
+<!-- STREAK CELEBRATION MODAL -->
+<div class="modal-overlay" id="streak-overlay" style="z-index:300;backdrop-filter:none">
+  <div class="modal-card" id="streak-card" style="padding-bottom:32px;text-align:center;position:relative;z-index:302">
+    <div class="modal-drag-handle"></div>
+    <div style="padding:24px 24px 0">
+      <div style="font-size:48px;margin-bottom:8px">🔥</div>
+      <div style="font-size:26px;font-weight:800;color:var(--text1);margin-bottom:10px" id="streak-modal-count"></div>
+      <div style="font-family:'Caveat',cursive;font-size:26px;font-weight:700;color:var(--p-green);line-height:1.4;margin-bottom:24px" id="streak-modal-msg"></div>
+      <button onclick="dismissStreakModal()" style="width:100%;padding:14px;border-radius:12px;background:var(--p-purple);border:none;color:#fff;font-size:15px;font-weight:700;cursor:pointer">Let's go! 💪</button>
+    </div>
+  </div>
+</div>
+<canvas id="streak-confetti" style="position:fixed;inset:0;z-index:301;pointer-events:none;display:none"></canvas>
 
 <!-- WHATS NEW MODAL -->
 <div class="modal-overlay" id="wnb-overlay">
@@ -857,9 +871,107 @@ function getBBReason(bb, dayId) {
   return reasons[dayId]?.[ti] || '';
 }
 
+// ─── STREAK CELEBRATION ───────────────────────────────────────────────────────
+
+const STREAK_EMOJI_SETS = [
+  ['💪','🔥','⚡','🏋️'],
+  ['🌟','✨','🎉','🥳'],
+  ['🦋','🌸','💚','🌿'],
+  ['🏆','👑','💎','🎯'],
+  ['🦁','🐻','🐯','🦊']
+];
+
+const STREAK_MESSAGES = [
+  "You're absolutely crushing it, Chloe.",
+  "That's not luck — that's you.",
+  "Consistency looks really good on you.",
+  "Baby and mama are both winning right now.",
+  "Look at you showing up, day after day.",
+  "Strong mama energy. Keep it going.",
+  "This is what dedication looks like."
+];
+
+let _confettiRAF = null;
+let _confettiParticles = [];
+
+function _launchConfetti(emojiSet) {
+  const canvas = document.getElementById('streak-confetti');
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  canvas.style.display = 'block';
+  const ctx = canvas.getContext('2d');
+  _confettiParticles = Array.from({length: 50}, () => ({
+    x: Math.random() * canvas.width,
+    y: -20 - Math.random() * 30,
+    emoji: emojiSet[Math.floor(Math.random() * emojiSet.length)],
+    size: 22 + Math.random() * 16,
+    speedY: 4 + Math.random() * 2,
+    speedX: (Math.random() - 0.5) * 2,
+    rot: Math.random() * 360,
+    rotSpeed: (Math.random() - 0.5) * 5,
+    opacity: 1
+  }));
+  const startTime = Date.now();
+  const duration = 4000;
+  const fadeStart = 3200;
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const elapsed = Date.now() - startTime;
+    _confettiParticles.forEach(p => {
+      p.y += p.speedY;
+      p.x += p.speedX;
+      p.rot += p.rotSpeed;
+      if (elapsed > fadeStart) p.opacity = Math.max(0, 1 - (elapsed - fadeStart) / (duration - fadeStart));
+      ctx.save();
+      ctx.globalAlpha = p.opacity;
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot * Math.PI / 180);
+      ctx.font = `${p.size}px serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(p.emoji, 0, 0);
+      ctx.restore();
+    });
+    if (elapsed < duration) {
+      _confettiRAF = requestAnimationFrame(draw);
+    } else {
+      canvas.style.display = 'none';
+    }
+  }
+  _confettiRAF = requestAnimationFrame(draw);
+}
+
+function checkStreakCelebration() {
+  const history = getHistory();
+  const streak = calcStreak(history);
+  if (streak < 5 || streak % 5 !== 0) return;
+  const celebrated = parseInt(localStorage.getItem('wt_celebrated_streak') || '0');
+  if (streak <= celebrated) return;
+  // New milestone — fire!
+  const emojiSet = STREAK_EMOJI_SETS[Math.floor(Math.random() * STREAK_EMOJI_SETS.length)];
+  const msg = STREAK_MESSAGES[Math.floor(Math.random() * STREAK_MESSAGES.length)];
+  _celebratedStreakValue = streak;
+  document.getElementById('streak-modal-count').textContent = `${streak} Day Streak!`;
+  document.getElementById('streak-modal-msg').textContent = msg;
+  setTimeout(() => {
+    _launchConfetti(emojiSet);
+    document.getElementById('streak-overlay').classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }, 500);
+}
+
+let _celebratedStreakValue = 0;
+function dismissStreakModal() {
+  localStorage.setItem('wt_celebrated_streak', _celebratedStreakValue);
+  document.getElementById('streak-overlay').classList.remove('open');
+  document.body.style.overflow = '';
+  if (_confettiRAF) cancelAnimationFrame(_confettiRAF);
+  document.getElementById('streak-confetti').style.display = 'none';
+}
+
 // ─── CHANGELOG ───────────────────────────────────────────────────────────────
 
-const APP_VERSION = '1.1';
+const APP_VERSION = '1.2';
 const CHANGELOG = {
   '1.1': `Pushed a little update to your workout app!\n\nThe active workout page got some love — exercises now have a proper checkbox so you can tick them off as you go. Weighted lifts still have the weight feedback buttons (too light / good / too heavy), and when you log a workout as complete, all of that gets saved.\n\nBest part: you can now tap any workout in your History to see the full breakdown — what you did, what you skipped, and how the weights felt. Locked in forever so you can track progress over time.`
 };
@@ -1200,6 +1312,7 @@ function showPage(name, pushState = true) {
   }
   if (pushState) history.pushState({page: name}, '', '');
   window.scrollTo(0,0);
+  if (name === 'history') checkStreakCelebration();
 }
 
 // Android back button / browser back
