@@ -351,6 +351,12 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
     <div class="card-title">Log</div>
     <div id="history-list"></div>
   </div>
+  <div class="card">
+    <div class="card-title">Backup</div>
+    <button class="btn btn-outline btn-sm" style="width:100%;margin-bottom:8px" onclick="exportWorkoutData()">📤 Export Data</button>
+    <input type="file" id="import-file-input" accept="application/json" style="display:none" onchange="handleImportFile(event)">
+    <button class="btn btn-outline btn-sm" style="width:100%" onclick="document.getElementById('import-file-input').click()">📥 Import Data</button>
+  </div>
 </div>
 
 <!-- STREAK CELEBRATION MODAL -->
@@ -971,9 +977,10 @@ function dismissStreakModal() {
 
 // ─── CHANGELOG ───────────────────────────────────────────────────────────────
 
-const APP_VERSION = '1.2';
+const APP_VERSION = '1.3';
 const CHANGELOG = {
-  '1.1': `Pushed a little update to your workout app!\n\nThe active workout page got some love — exercises now have a proper checkbox so you can tick them off as you go. Weighted lifts still have the weight feedback buttons (too light / good / too heavy), and when you log a workout as complete, all of that gets saved.\n\nBest part: you can now tap any workout in your History to see the full breakdown — what you did, what you skipped, and how the weights felt. Locked in forever so you can track progress over time.`
+  '1.1': `Pushed a little update to your workout app!\n\nThe active workout page got some love — exercises now have a proper checkbox so you can tick them off as you go. Weighted lifts still have the weight feedback buttons (too light / good / too heavy), and when you log a workout as complete, all of that gets saved.\n\nBest part: you can now tap any workout in your History to see the full breakdown — what you did, what you skipped, and how the weights felt. Locked in forever so you can track progress over time.`,
+  '1.3': `Added Export/Import buttons at the bottom of your History tab.\n\nThis app saves everything only on this phone, in this browser — nothing gets backed up anywhere else. Tap "Export Data" every so often to download a small file with your full history, weights, and swaps. If this phone or browser ever loses its data, "Import Data" loads that file right back in.`
 };
 
 function initWhatsNew() {
@@ -1375,6 +1382,49 @@ function showToast(msg) {
   t.textContent = msg;
   t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ─── EXPORT / IMPORT (backup — this app has no cloud sync, wt_* is all there is) ──
+function exportWorkoutData() {
+  const out = { exportedAt: new Date().toISOString(), data: {} };
+  Object.keys(localStorage).forEach(k => {
+    if (!k.startsWith('wt_')) return;
+    const v = localStorage.getItem(k);
+    try { out.data[k] = JSON.parse(v); } catch (e) { out.data[k] = v; }
+  });
+  const blob = new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `bkfit-export-${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('Export downloaded ✓');
+}
+
+function handleImportFile(event) {
+  const file = event.target.files[0];
+  event.target.value = ''; // allow re-selecting the same file later
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    let parsed;
+    try { parsed = JSON.parse(reader.result); }
+    catch (e) { showToast('Not a valid export file'); return; }
+    const data = parsed.data || parsed; // tolerate a raw key map too
+    const when = parsed.exportedAt ? new Date(parsed.exportedAt).toLocaleDateString() : 'an unknown date';
+    if (!confirm(`Import data exported on ${when}?\n\nThis overwrites your current history, weights, and swaps with the file's contents.`)) return;
+    let count = 0;
+    Object.keys(data).forEach(k => {
+      if (!k.startsWith('wt_')) return;
+      const v = data[k];
+      localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v));
+      count++;
+    });
+    showToast(`Imported ${count} record${count === 1 ? '' : 's'} ✓`);
+    setTimeout(() => location.reload(), 900);
+  };
+  reader.readAsText(file);
 }
 
 // ─── MOVEMENT REFERENCES ─────────────────────────────────────────────────────
