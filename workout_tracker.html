@@ -607,7 +607,8 @@ function fresh(){
       benchOn:true, runUnlocked:false, gear:{db:true,chair:true,band:false,kb:false,box:false,bar:false},
       excluded:[]
     },
-    log:[], anchors:{}, bench:[], active:null, seedBump:{}, readiness:{}, badges:[]
+    log:[], anchors:{}, bench:[], active:null, seedBump:{}, readiness:{}, badges:[],
+    maxPhaseReached:0, bestPace:{}
   };
 }
 function load(){
@@ -616,6 +617,8 @@ function load(){
   if(!D || D.v !== 2){ D = fresh(); migrate(); save(); }
   if(!D.settings.gear) D.settings.gear = {db:true,chair:true,band:false,kb:false,box:false,bar:false};
   if(!D.badges) D.badges = [];
+  if(D.maxPhaseReached===undefined) D.maxPhaseReached = 0;
+  if(!D.bestPace) D.bestPace = {};
 }
 function save(){ try{ localStorage.setItem(KEY, JSON.stringify(D)); }catch(e){ toast('Could not save — storage full?'); } }
 
@@ -781,6 +784,54 @@ function mkItem(m, opts){
   return {mid:m.id, n:m.n, d:opts.d || rx(m,opts), anchor:!!(m.anchor && opts.anchor!==false), wt:opts.wt||null, sets:opts.sets||m.sets||1};
 }
 
+/* ═══ CARDIO TREND — walk/run get the same "learn from your own history"
+   treatment strength anchors already have. Purely a nudge: it never gates
+   or replaces "log it, any length always counts." ═══ */
+var TREND_KINDS = ['walk','run'];
+var TREND_MIN_ENTRIES = 4;   // need at least this many logged before suggesting anything
+var TREND_WINDOW_DAYS = 45;  // ignore anything older when computing a trend
+
+function fmtPace(p){ // p = minutes per mile
+  if(p==null || !isFinite(p) || p<=0) return null;
+  var m = Math.floor(p), s = Math.round((p-m)*60);
+  if(s===60){ m++; s=0; }
+  return m+':'+(s<10?'0':'')+s+'/mi';
+}
+function cardioHistory(kind){
+  var cutoff = addDays(today(), -TREND_WINDOW_DAYS);
+  return D.log.filter(function(l){
+    return l.kind===kind && l.dist && l.mins && (parseD(l.date)||new Date(l.date)) >= cutoff;
+  }).sort(function(a,b){ return a.date.localeCompare(b.date); });
+}
+function cardioAvgPace(entries){
+  var d=0, m=0;
+  entries.forEach(function(e){ d+=e.dist; m+=e.mins; });
+  return d>0 ? m/d : null;
+}
+function cardioTrend(kind){
+  var h = cardioHistory(kind);
+  if(h.length < TREND_MIN_ENTRIES) return null;
+  var recent = h.slice(-8);
+  var avgDist = recent.reduce(function(a,e){return a+e.dist;},0) / recent.length;
+  var avgPace = cardioAvgPace(recent);
+  return {n:recent.length, avgDist:avgDist, avgPace:avgPace, targetDist:Math.round(avgDist*1.05*10)/10};
+}
+/* Positive = pace improved (fewer minutes per mile than a few weeks ago) */
+function cardioDelta(kind){
+  var h = cardioHistory(kind);
+  if(h.length < TREND_MIN_ENTRIES) return null;
+  var half = Math.floor(h.length/2);
+  var older = cardioAvgPace(h.slice(0,half)), newer = cardioAvgPace(h.slice(-half));
+  if(older==null || newer==null) return null;
+  return older - newer;
+}
+function trendNote(kind){
+  var t = cardioTrend(kind);
+  if(!t) return null;
+  var noun = kind==='run' ? 'runs' : 'walks';
+  return 'Your last '+t.n+' '+noun+' average '+trim(t.avgDist)+' mi. Today’s stretch, if you want one: ~'+t.targetDist+' mi. Anything counts either way — this is never required.';
+}
+
 function buildStrength(r, mins){
   var ph = curPhase(), used = [], blocks = [];
   var fmts = SFORMATS.filter(function(f){ return f.phase<=ph && mins>=f.mins[0]; });
@@ -865,8 +916,13 @@ function buildCardio(r, mins){
 
   var rows = fmt.build(mod.n, mins);
   var items = rows.map(function(row){ return {mid:null, n:row[0], d:row[1]}; });
-  return {kind:'cardio', title:fmt.n, meta:mod.n+' · '+mins+' min · '+venueName(),
+  var sess = {kind:'cardio', modId:mod.id, title:fmt.n, meta:mod.n+' · '+mins+' min · '+venueName(),
           blocks:[{h:'Cardio', cls:'gh-warm', items:items}]};
+  if(TREND_KINDS.indexOf(mod.id)>=0){
+    var note = trendNote(mod.id);
+    if(note) sess.fmtNote = note;
+  }
+  return sess;
 }
 
 function buildMobility(r, mins){
@@ -905,8 +961,11 @@ function buildRecovery(r, mins){
 }
 
 function buildWalk(){
-  return {kind:'walk', title:'Walk', meta:'Any length · one tap to log',
+  var sess = {kind:'walk', title:'Walk', meta:'Any length · one tap to log',
           blocks:[{h:'Walk', cls:'gh-warm', items:[{mid:null,n:'Walk — stroller, treadmill, round the block',d:'no minimum'}]}], quick:true};
+  var note = trendNote('walk');
+  if(note) sess.fmtNote = note;
+  return sess;
 }
 
 /* Which sessions to offer today */
@@ -965,6 +1024,7 @@ function credits(l){
   var c = {};
   var k = l.kind;
   if(k==='walk')      c.walk = 1;
+  else if(k==='run')      { c.cardio = 1; }
   else if(k==='strength') { c.strength = 1; }
   else if(k==='cardio')   { c.cardio = 1; }
   else if(k==='mobility') { c.mobility = 1; }
@@ -1023,6 +1083,9 @@ function streakWeeks(){
   }
   return n;
 }
+function totalDistLogged(){
+  return D.log.reduce(function(a,l){ return a + (l.dist||0); }, 0);
+}
 function checkBadges(){
   var got = D.badges, add = [];
   var total = D.log.length;
@@ -1030,19 +1093,89 @@ function checkBadges(){
   D.log.forEach(function(l){ (l.moves||[]).forEach(function(m){ moves[m]=1; }); });
   var uniq = Object.keys(moves).length;
   function give(id){ if(got.indexOf(id)<0){ got.push(id); add.push(id); } }
+
   if(total>=1) give('first');
   if(total>=10) give('ten');
   if(total>=25) give('twentyfive');
   if(total>=50) give('fifty');
+  if(total>=100) give('century');
   if(uniq>=10) give('explore10');
   if(uniq>=25) give('explore25');
   if(streakWeeks()>=4) give('month');
   if(Object.keys(D.anchors).length>=3) give('anchored');
+  if(D.bench && D.bench.length>=1) give('benchmarked');
+  if(Object.keys(D.bestPace||{}).length>=1) give('pacepr');
+  if(D.log.filter(function(l){return l.kids;}).length>=10) give('kidsaround');
+
+  var dist = totalDistLogged();
+  if(dist>=10) give('mile10');
+  if(dist>=25) give('mile25');
+  if(dist>=50) give('mile50');
+
+  var allCats = {}; MOVES.forEach(function(m){ allCats[m.cat]=1; });
+  var triedCats = {}; MOVES.forEach(function(m){ if(moves[m.id]) triedCats[m.cat]=1; });
+  if(Object.keys(triedCats).length >= Object.keys(allCats).length) give('wellrounded');
+
+  /* returned after logging AND after every phase advance, not just via logging */
+  var ph = curPhase();
+  if(ph > D.maxPhaseReached) D.maxPhaseReached = ph;
+  if(D.maxPhaseReached>=1) give('phase1');
+  if(D.maxPhaseReached>=2) give('phase2');
+  if(D.maxPhaseReached>=3) give('phase3');
+  if(D.maxPhaseReached>=4) give('phase4');
+
+  /* came back after a real gap — reframed as a win, not a broken streak */
+  var dates = D.log.map(function(l){ return l.date; }).filter(Boolean).sort();
+  if(dates.length>=2){
+    var last = parseD(dates[dates.length-1]), prev = parseD(dates[dates.length-2]);
+    if(last && prev && daysBetween(prev,last) >= 7) give('comeback');
+  }
+
   if(add.length){ save(); }
   return add;
 }
-var BADGE_N = {first:'First one done',ten:'10 sessions',twentyfive:'25 sessions',fifty:'50 sessions',
-  explore10:'10 movements tried',explore25:'25 movements tried',month:'4 weeks running',anchored:'Anchors logged'};
+var BADGE_N = {
+  first:'First one done', ten:'10 sessions', twentyfive:'25 sessions', fifty:'50 sessions', century:'100 sessions',
+  explore10:'10 movements tried', explore25:'25 movements tried', wellrounded:'Tried every category',
+  month:'4 weeks running', comeback:'Back at it after a break', anchored:'Anchors logged',
+  benchmarked:'First benchmark done', pacepr:'First pace PR', kidsaround:'10 sessions with kids underfoot',
+  mile10:'10 miles logged', mile25:'25 miles logged', mile50:'50 miles logged',
+  phase1:'Into recovery', phase2:'Reconnect on-ramp', phase3:'Return prep started', phase4:'Back on duty'
+};
+
+/* ═══ POST-LOG: PR check + badge toasts ════════════════════════
+   One shared path for every way a session can get logged, so nothing
+   about "along the way" depends on which button she happened to tap. */
+function toastQueue(msgs){
+  if(!msgs || !msgs.length) return;
+  var i = 0;
+  (function next(){
+    if(i>=msgs.length) return;
+    toast(msgs[i]); i++;
+    if(i<msgs.length) setTimeout(next, 2400);
+  })();
+}
+/* Repeatable — celebrates every real improvement, not just the first ever.
+   Small threshold avoids "PR" noise from rounding-level differences. */
+function checkPacePR(entry){
+  if(!entry || TREND_KINDS.indexOf(entry.kind)<0 || !entry.dist || !entry.mins) return null;
+  var pace = entry.mins / entry.dist;
+  var prev = D.bestPace[entry.kind];
+  if(prev==null || pace < prev - 0.05){
+    D.bestPace[entry.kind] = pace;
+    return 'New pace PR — ' + fmtPace(pace) + '! 🏃';
+  }
+  return null;
+}
+function postLog(entry, fallbackMsg){
+  var msgs = [fallbackMsg];
+  var pr = checkPacePR(entry);
+  if(pr) msgs.push(pr);
+  checkBadges().forEach(function(id){ msgs.push('New: ' + (BADGE_N[id]||id)); });
+  save();
+  toastQueue(msgs);
+  renderAll();
+}
 
 /* ═══ RENDER: TODAY ═══════════════════════════════════════════ */
 function venueName(){ var v = D.settings.venue; return v==='home'?'Home':v==='city'?'City gym':'Station'; }
@@ -1173,7 +1306,8 @@ function sessionCard(s, i){
   });
   if(s.fmtNote) body += '<div class="note" style="--nc:var(--p-'+col+')">'+s.fmtNote+'</div>';
   var act = s.quick
-    ? '<div class="sc-a"><button class="btn" onclick="quickLog(\''+s.kind+'\')">Log it</button></div>'
+    ? '<div class="sc-a"><button class="btn" onclick="quickLog(\''+s.kind+'\')">Log it</button>'+
+      '<button class="btn sec sm" style="flex:0 0 auto" onclick="openLogSheet(\''+s.kind+'\')">+ distance / HR</button></div>'
     : '<div class="sc-a"><button class="btn" onclick="startRun('+i+')">Start</button></div>';
   return '<div class="sc" style="--sc-bg:var(--'+col+'-bg);--sc-bd:var(--'+col+'-border)">' +
     '<div class="sc-h"><div class="sc-t">'+esc(s.title)+(s.optional?' <span style="font-size:11px;color:var(--text3);font-weight:400">optional</span>':'')+'</div><div class="sc-m">'+esc(s.meta)+'</div></div>' +
@@ -1404,47 +1538,96 @@ function finishRun(partial){
     }
   }); });
   var isPartial = partial || done < total;
-  D.log.push({
-    id:'s-'+Date.now(), date:dkey(), kind:s.kind, name:s.title,
+  /* A generated cardio session tagged modId 'walk'/'run' feeds the same
+     trend bucket as one logged through the Walk card or free-log. */
+  var logKind = (s.modId && TREND_KINDS.indexOf(s.modId)>=0) ? s.modId : s.kind;
+  var entry = {
+    id:'s-'+Date.now(), date:dkey(), kind:logKind, name:s.title,
     mins: s.effMins || (D.settings.mins==='auto' ? effectiveMins() : D.settings.mins), moves:moves, partial:isPartial,
-    detail: done+'/'+total+' done'
-  });
-  D.active = null; RUN = null; save();
-  var nb = checkBadges();
-  toast(isPartial ? 'Logged as partial — still counts' : 'Logged. Nice work.');
-  if(nb.length) setTimeout(function(){ toast('New: ' + BADGE_N[nb[0]]); }, 2200);
-  showPage('today'); renderAll();
+    detail: done+'/'+total+' done', kids:D.settings.kids
+  };
+  D.log.push(entry);
+  D.active = null; RUN = null;
+  showPage('today');
+  postLog(entry, isPartial ? 'Logged as partial — still counts' : 'Logged. Nice work.');
+  maybePromptCardioDetails(entry, logKind);
+}
+/* Optional, skippable — lets a generator-driven walk/run feed the same
+   trend data a free-logged one does, without making anyone stop and type
+   numbers before the session even counts. */
+function maybePromptCardioDetails(entry, logKind){
+  if(TREND_KINDS.indexOf(logKind)<0) return;
+  setTimeout(function(){
+    var html = '<div class="grab"></div><div class="sh-t">Add distance &amp; heart rate?</div>' +
+      '<div class="sh-s">Optional — helps the app learn your pace over time. Skip anytime.</div>' +
+      '<div class="fld"><label>Distance (miles)</label><input id="pc-dist" type="number" inputmode="decimal" step="0.1" placeholder="e.g. 2.1"></div>' +
+      '<div class="fld"><label>Avg heart rate</label><input id="pc-hr" type="number" inputmode="numeric" placeholder="e.g. 128"></div>' +
+      '<button class="btn" onclick="savePostDetails(\''+entry.id+'\')">Save</button>' +
+      '<button class="btn sec" style="margin-top:9px" onclick="closeSheet()">Skip</button>';
+    openSheet(html);
+  }, 900);
+}
+function savePostDetails(entryId){
+  var entry = D.log.filter(function(l){ return l.id===entryId; })[0];
+  if(!entry){ closeSheet(); return; }
+  var dv = parseFloat(document.getElementById('pc-dist').value);
+  var hv = parseInt(document.getElementById('pc-hr').value,10);
+  if(!isNaN(dv) && dv>0) entry.dist = dv;
+  if(!isNaN(hv) && hv>0) entry.hr = hv;
+  closeSheet();
+  var msgs = [];
+  var pr = checkPacePR(entry); if(pr) msgs.push(pr);
+  checkBadges().forEach(function(id){ msgs.push('New: ' + (BADGE_N[id]||id)); });
+  save();
+  if(msgs.length) toastQueue(msgs);
+  renderAll();
 }
 
 /* ═══ QUICK + FREE LOGGING ════════════════════════════════════ */
 function quickLog(kind){
-  D.log.push({id:'q-'+Date.now(), date:dkey(), kind:kind, name: kind==='walk'?'Walk':'Session', mins:null, moves:[]});
-  save(); checkBadges(); toast('Logged'); renderAll();
+  var entry = {id:'q-'+Date.now(), date:dkey(), kind:kind, name: kind==='walk'?'Walk':'Session',
+               mins:null, moves:[], kids:D.settings.kids};
+  D.log.push(entry);
+  postLog(entry, 'Logged');
 }
 var LOGKINDS = [
- {k:'walk',n:'Walk'},{k:'strength',n:'Strength'},{k:'cardio',n:'Cardio'},
+ {k:'walk',n:'Walk'},{k:'run',n:'Run'},{k:'strength',n:'Strength'},{k:'cardio',n:'Cardio'},
  {k:'yoga',n:'Yoga'},{k:'mobility',n:'Stretch / mobility'},{k:'swim',n:'Swim'},
  {k:'floor',n:'Pelvic floor'},{k:'other',n:'Something else'}
 ];
-function openLogSheet(){
+/* Distance + HR only make sense for these — kept optional even here,
+   never required to log something. */
+var DIST_KINDS = ['walk','run','cardio','swim'];
+
+function openLogSheet(presetKind){
+  var kinds = LOGKINDS.filter(function(o){ return o.k!=='run' || D.settings.runUnlocked; });
   var html = '<div class="grab"></div><div class="sh-t">Log an activity</div>' +
     '<div class="sh-s">Anything you did. It counts toward this week whether the app suggested it or not.</div>' +
     '<div class="fld"><label>What was it</label><div class="opts" id="lk-opts">' +
-    LOGKINDS.map(function(o){ return '<button class="opt" data-k="'+o.k+'" onclick="pickKind(this)">'+o.n+'</button>'; }).join('') +
+    kinds.map(function(o){ return '<button class="opt'+(o.k===presetKind?' on':'')+'" data-k="'+o.k+'" onclick="pickKind(this)">'+o.n+'</button>'; }).join('') +
     '</div></div>' +
     '<div class="fld"><label>Name it (optional)</label><input id="lg-name" placeholder="e.g. prenatal yoga class"></div>' +
     '<div class="fld"><label>Minutes</label><input id="lg-mins" type="number" inputmode="numeric" placeholder="20"></div>' +
+    '<div class="fld" id="lg-dist-fld" hidden><label>Distance (miles, optional)</label><input id="lg-dist" type="number" inputmode="decimal" step="0.1" placeholder="e.g. 2.1"></div>' +
+    '<div class="fld" id="lg-hr-fld" hidden><label>Avg heart rate (optional, off your watch)</label><input id="lg-hr" type="number" inputmode="numeric" placeholder="e.g. 128"></div>' +
     '<div class="fld"><label>How hard</label><div class="opts" id="le-opts">' +
     ['easy','moderate','hard'].map(function(e){ return '<button class="opt" data-e="'+e+'" onclick="pickEff(this)">'+e+'</button>'; }).join('') +
     '</div></div>' +
     '<button class="btn" onclick="saveFreeLog()">Log it</button>' +
-    '<div class="mini" style="text-align:center;margin-top:10px">This adjusts the rest of your week — it does not stack on top.</div>';
+    '<div class="mini" style="text-align:center;margin-top:10px">This adjusts the rest of your week — it does not stack on top. Distance and heart rate are always optional.</div>';
   openSheet(html);
-  window._lk = null; window._le = null;
+  window._lk = presetKind || null; window._le = null;
+  updateLogFieldVisibility();
+}
+function updateLogFieldVisibility(){
+  var show = DIST_KINDS.indexOf(window._lk) >= 0;
+  document.getElementById('lg-dist-fld').hidden = !show;
+  document.getElementById('lg-hr-fld').hidden = !show;
 }
 function pickKind(b){
   Array.prototype.forEach.call(document.querySelectorAll('#lk-opts .opt'), function(x){ x.classList.remove('on'); });
   b.classList.add('on'); window._lk = b.dataset.k;
+  updateLogFieldVisibility();
 }
 function pickEff(b){
   Array.prototype.forEach.call(document.querySelectorAll('#le-opts .opt'), function(x){ x.classList.remove('on'); });
@@ -1455,9 +1638,17 @@ function saveFreeLog(){
   var nm = (document.getElementById('lg-name').value||'').trim();
   var mn = parseInt(document.getElementById('lg-mins').value,10) || null;
   var kindName = (LOGKINDS.filter(function(o){return o.k===window._lk;})[0]||{}).n || 'Session';
-  D.log.push({id:'f-'+Date.now(), date:dkey(), kind:window._lk, name: nm || kindName,
-              mins:mn, effort:window._le, moves:[], free:true});
-  save(); checkBadges(); closeSheet(); toast('Logged — plan adjusted'); renderAll();
+  var entry = {id:'f-'+Date.now(), date:dkey(), kind:window._lk, name: nm || kindName,
+              mins:mn, effort:window._le, moves:[], free:true, kids:D.settings.kids};
+  if(DIST_KINDS.indexOf(window._lk) >= 0){
+    var dv = parseFloat(document.getElementById('lg-dist').value);
+    var hv = parseInt(document.getElementById('lg-hr').value,10);
+    if(!isNaN(dv) && dv>0) entry.dist = dv;
+    if(!isNaN(hv) && hv>0) entry.hr = hv;
+  }
+  D.log.push(entry);
+  closeSheet();
+  postLog(entry, 'Logged — plan adjusted');
 }
 
 /* ═══ CONTEXT SHEETS ══════════════════════════════════════════ */
@@ -1581,6 +1772,10 @@ function renderProg(){
     out += '</div>';
   }
 
+  /* cardio trends — same "evidence, not vibes" idea as the anchor cards,
+     applied to walking/running distance, pace and heart rate */
+  out += renderTrendCard('walk') + renderTrendCard('run');
+
   /* benchmarks */
   if(D.settings.benchOn){
     out += '<div class="card"><div class="card-title">Benchmarks</div>';
@@ -1605,6 +1800,40 @@ function renderProg(){
   document.getElementById('prog-body').innerHTML = out;
 }
 function st(n,l){ return '<div class="st"><div class="st-n">'+n+'</div><div class="st-l">'+l+'</div></div>'; }
+function fmtPaceShort(p){ var s = fmtPace(p); return s ? s.replace('/mi','') : '—'; }
+function renderTrendCard(kind){
+  var allTime = D.log.filter(function(l){ return l.kind===kind && l.dist; })
+                      .sort(function(a,b){ return a.date.localeCompare(b.date); });
+  if(!allTime.length) return '';
+  var label = kind==='run' ? 'Running' : 'Walking';
+  var out = '<div class="card"><div class="card-title">'+label+' trend</div>';
+  var t = cardioTrend(kind), delta = cardioDelta(kind);
+  if(t){
+    out += '<div class="sgrid" style="margin-bottom:11px">' +
+      st(trim(t.avgDist)+' mi', 'avg distance') +
+      st(fmtPaceShort(t.avgPace), 'avg pace / mi') +
+      st(D.bestPace[kind]!=null ? fmtPaceShort(D.bestPace[kind]) : '—', 'best pace / mi') +
+      '</div>';
+    if(delta!=null && Math.abs(delta)>=0.05){
+      out += delta>0
+        ? '<div class="note" style="--nc:var(--p-green)">Pace improving — about '+fmtPaceShort(Math.abs(delta))+' faster per mile than a few weeks ago.</div>'
+        : '<div class="note">A little slower than a few weeks back — normal with everything else going on right now.</div>';
+    }
+  } else {
+    var need = TREND_MIN_ENTRIES - allTime.length;
+    out += '<div class="mini">Log '+need+' more with distance and this starts showing trends and a stretch target.</div>';
+  }
+  out += '<hr class="sep" style="margin:12px 0">';
+  allTime.slice(-6).reverse().forEach(function(e){
+    var d = parseD(e.date) || new Date(e.date);
+    var pace = (e.dist && e.mins) ? fmtPace(e.mins/e.dist) : null;
+    out += '<div class="lg"><div class="lg-i"><div class="lg-n">'+trim(e.dist)+' mi'+(e.mins?' · '+e.mins+' min':'')+(pace?' · '+pace:'')+'</div>' +
+      (e.hr?'<div class="lg-m">avg HR '+e.hr+'</div>':'') + '</div>' +
+      '<div class="lg-t">'+d.toLocaleDateString('en-US',{month:'short',day:'numeric'})+'</div></div>';
+  });
+  out += '</div>';
+  return out;
+}
 function uniqueMoves(){ var o = {}; D.log.forEach(function(l){ (l.moves||[]).forEach(function(m){o[m]=1;}); }); return Object.keys(o).length; }
 function openBench(id){
   var all = BENCH_HOME.concat(BENCH_STATION);
@@ -1872,6 +2101,14 @@ if(D.active && !welcomed){
       '<button class="btn" onclick="closeSheet();resumeRun()">Carry on</button>' +
       '<button class="btn sec" style="margin-top:9px" onclick="D.active=null;save();closeSheet()">Start fresh</button>');
   }, 400);
+}
+/* Phase-crossing badges (e.g. "Back on duty") can happen from a date
+   alone, not just a logged action — catch that on open, not just on log. */
+if(!D.active && !welcomed){
+  setTimeout(function(){
+    var nb = checkBadges();
+    if(nb.length){ save(); toastQueue(nb.map(function(id){ return 'New: ' + (BADGE_N[id]||id); })); }
+  }, 700);
 }
 if('serviceWorker' in navigator){
   window.addEventListener('load', function(){ navigator.serviceWorker.register('sw.js').catch(function(){}); });
