@@ -1,7 +1,7 @@
 {
-  "name": "BK Fitness",
-  "short_name": "BK Fitness",
-  "description": "Personal pregnancy training guide and tracker",
+  "name": "BK Fit",
+  "short_name": "BK Fit",
+  "description": "Postpartum return-to-duty training",
   "start_url": "./workout_tracker.html",
   "scope": "./",
   "display": "standalone",
@@ -9,17 +9,7 @@
   "theme_color": "#2C3338",
   "orientation": "portrait",
   "icons": [
-    {
-      "src": "icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
-    }
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
   ]
 }
