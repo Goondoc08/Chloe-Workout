@@ -151,6 +151,8 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 
 /* LOG LIST */
 .lg{display:flex;gap:11px;padding:11px 0;border-bottom:1px solid var(--border);align-items:center}
+.lg-kebab{flex:0 0 auto;width:30px;height:30px;border-radius:8px;border:none;background:transparent;color:var(--text3);font-size:18px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:var(--font)}
+.lg-kebab:active{background:var(--card2)}
 .lg:last-child{border-bottom:none}
 .lg-d{width:6px;height:6px;border-radius:50%;background:var(--lc,var(--p-green));flex:0 0 auto}
 .lg-i{flex:1;min-width:0}
@@ -300,7 +302,7 @@ hr.sep{border:none;border-top:1px solid var(--border);margin:16px 0}
    Single file. No backend. Everything in localStorage.
    ═══════════════════════════════════════════════════════════════ */
 
-var BUILD = '2.1.1 · 2026-09-20';
+var BUILD = '2.2.0 · 2026-09-20';
 
 /* ─── MOVEMENT CATALOG ────────────────────────────────────────
    phase  : earliest phase this may appear (0-4)
@@ -1726,7 +1728,7 @@ function renderPlan(){
 
 /* ═══ LOG PAGE ════════════════════════════════════════════════ */
 function renderLog(){
-  var cols = {walk:'blue',strength:'green',cardio:'blue',mobility:'purple',floor:'tan',yoga:'purple',swim:'blue',other:'mauve'};
+  var cols = {walk:'blue',run:'blue',strength:'green',cardio:'blue',mobility:'purple',floor:'tan',yoga:'purple',swim:'blue',other:'mauve'};
   var out = '';
   var recent = D.log.slice().sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); }).slice(0,60);
   if(!recent.length){
@@ -1736,11 +1738,60 @@ function renderLog(){
       var d = parseD(l.date) || new Date(l.date);
       out += '<div class="lg"><span class="lg-d" style="--lc:var(--p-'+(cols[l.kind]||'mauve')+')"></span>' +
         '<div class="lg-i"><div class="lg-n">'+esc(l.name||l.kind)+(l.partial?' <span style="font-size:10.5px;color:var(--text3)">partial</span>':'')+'</div>' +
-        '<div class="lg-m">'+[l.mins?l.mins+' min':'', l.effort||'', l.detail||''].filter(Boolean).join(' · ')+'</div></div>' +
-        '<div class="lg-t">'+d.toLocaleDateString('en-US',{month:'short',day:'numeric'})+'</div></div>';
+        '<div class="lg-m">'+[l.mins?l.mins+' min':'', l.dist?trim(l.dist)+' mi':'', l.hr?'HR '+l.hr:'', l.effort||'', l.detail||''].filter(Boolean).join(' · ')+'</div></div>' +
+        '<div class="lg-t">'+d.toLocaleDateString('en-US',{month:'short',day:'numeric'})+'</div>' +
+        '<button class="lg-kebab" onclick="openLogDetail(\''+l.id+'\')">⋮</button></div>';
     });
   }
   document.getElementById('log-list').innerHTML = out;
+}
+/* ═══ LOG DETAIL / DELETE ═════════════════════════════════════ */
+function openLogDetail(id){
+  var l = D.log.filter(function(x){ return x.id===id; })[0];
+  if(!l){ toast('Not found'); return; }
+  var d = parseD(l.date) || new Date(l.date);
+  var pace = (l.dist && l.mins) ? fmtPace(l.mins/l.dist) : null;
+  var kindName = (LOGKINDS.filter(function(o){ return o.k===l.kind; })[0]||{}).n || l.kind;
+  var rows = [
+    ['Date', d.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})],
+    ['Type', kindName],
+    l.mins ? ['Duration', l.mins+' min'] : null,
+    l.dist ? ['Distance', trim(l.dist)+' mi'] : null,
+    pace ? ['Pace', pace] : null,
+    l.hr ? ['Avg heart rate', l.hr+' bpm'] : null,
+    l.effort ? ['Effort', l.effort] : null,
+    l.detail ? ['Session', l.detail] : null,
+    (l.moves && l.moves.length) ? ['Movements', l.moves.length+' logged'] : null,
+    l.partial ? ['Status', 'Partial — still counted'] : null,
+    l.kids ? ['Kids around', 'Yes'] : null
+  ].filter(Boolean);
+  var html = '<div class="grab"></div><div class="sh-t">'+esc(l.name||kindName)+'</div>';
+  rows.forEach(function(r){
+    html += '<div style="padding:8px 0;border-bottom:1px solid var(--border)">' +
+      '<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">'+esc(r[0])+'</div>' +
+      '<div style="font-size:15px;margin-top:2px">'+esc(String(r[1]))+'</div></div>';
+  });
+  html += '<button class="btn sec" style="margin-top:16px;border-color:#c1655f;color:#d98d88" onclick="confirmDeleteLog(\''+id+'\')">Delete this log</button>';
+  openSheet(html);
+}
+function confirmDeleteLog(id){
+  var l = D.log.filter(function(x){ return x.id===id; })[0];
+  if(!l){ closeSheet(); return; }
+  var d = parseD(l.date) || new Date(l.date);
+  var kindName = (LOGKINDS.filter(function(o){ return o.k===l.kind; })[0]||{}).n || l.kind;
+  var html = '<div class="grab"></div><div class="sh-t">Delete this log?</div>' +
+    '<div class="sh-s">'+esc(l.name||kindName)+' on '+d.toLocaleDateString('en-US',{month:'short',day:'numeric'})+'. This can’t be undone.</div>' +
+    '<button class="btn" style="background:#c1655f" onclick="deleteLogEntry(\''+id+'\')">Yes, delete it</button>' +
+    '<button class="btn sec" style="margin-top:9px" onclick="openLogDetail(\''+id+'\')">Cancel</button>';
+  openSheet(html);
+}
+function deleteLogEntry(id){
+  D.log = D.log.filter(function(x){ return x.id!==id; });
+  save();
+  closeSheet();
+  toast('Removed');
+  renderAll();
+  if(document.getElementById('pg-log').classList.contains('active')) renderLog();
 }
 
 /* ═══ PROGRESS PAGE ═══════════════════════════════════════════ */
