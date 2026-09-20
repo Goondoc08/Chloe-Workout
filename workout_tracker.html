@@ -302,7 +302,7 @@ hr.sep{border:none;border-top:1px solid var(--border);margin:16px 0}
    Single file. No backend. Everything in localStorage.
    ═══════════════════════════════════════════════════════════════ */
 
-var BUILD = '2.2.0 · 2026-09-20';
+var BUILD = '2.2.1 · 2026-09-20';
 
 /* ─── MOVEMENT CATALOG ────────────────────────────────────────
    phase  : earliest phase this may appear (0-4)
@@ -1322,12 +1322,23 @@ function renderBudget(){
   var b = budgetState(), out = '', cols = {walk:'blue',strength:'green',cardio:'blue',mobility:'purple',floor:'tan'};
   var order = ['strength','cardio','walk','mobility','floor'];
   order.forEach(function(cat){
-    if(!b[cat] || !b[cat].target) return;
-    var t = b[cat].target, d = Math.min(b[cat].done, t);
-    var pctv = t ? Math.round(d/t*100) : 0;
-    out += '<div class="bud-row'+(d>=t?' done':'')+'"><div class="bud-lb">'+cat+'</div>' +
+    if(!b[cat]) return;
+    var t = b[cat].target, d = b[cat].done;
+    if(!t && !d) return; /* nothing planned and nothing done — nothing to show */
+    if(!t){
+      /* Not part of this phase's plan, but she did some anyway (e.g. the
+         optional P0 "Something more" strength card) — show it as a bonus
+         rather than hiding real effort just because it wasn't required. */
+      out += '<div class="bud-row done"><div class="bud-lb">'+cat+'</div>' +
+        '<div class="bud-tr"><div class="bud-fl" style="width:100%;--bc:var(--p-'+(cols[cat]||'green')+')"></div></div>' +
+        '<div class="bud-n">'+trim(d)+' bonus</div></div>';
+      return;
+    }
+    var dd = Math.min(d, t);
+    var pctv = t ? Math.round(dd/t*100) : 0;
+    out += '<div class="bud-row'+(dd>=t?' done':'')+'"><div class="bud-lb">'+cat+'</div>' +
       '<div class="bud-tr"><div class="bud-fl" style="width:'+pctv+'%;--bc:var(--p-'+(cols[cat]||'green')+')"></div></div>' +
-      '<div class="bud-n">'+trim(b[cat].done)+'/'+t+'</div></div>';
+      '<div class="bud-n">'+trim(d)+'/'+t+'</div></div>';
   });
   document.getElementById('budget').innerHTML = out || '<div class="mini">Nothing targeted this week.</div>';
   var ph = phaseObj();
