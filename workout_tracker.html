@@ -212,7 +212,7 @@ hr.sep{border:none;border-top:1px solid var(--border);margin:16px 0}
     </div>
   </div>
   <div class="chips" id="ctx-chips"></div>
-  <button class="rowbtn" style="margin-bottom:12px" onclick="openLogSheet()"><div><div>Did something else today?</div><div class="sub">Yoga, a hike, anything — log it and the plan adjusts</div></div><span class="ar">+</span></button>
+  <button class="rowbtn" style="margin-bottom:12px" onclick="openLogSheet()"><div><div>Did something else?</div><div class="sub">Yoga, a hike, anything — today or a day you forgot to log</div></div><span class="ar">+</span></button>
   <div id="export-nudge" style="margin-bottom:12px"></div>
   <div id="today-sessions"></div>
   <div class="card">
@@ -302,7 +302,7 @@ hr.sep{border:none;border-top:1px solid var(--border);margin:16px 0}
    Single file. No backend. Everything in localStorage.
    ═══════════════════════════════════════════════════════════════ */
 
-var BUILD = '2.2.1 · 2026-09-20';
+var BUILD = '2.3.0 · 2026-11-03';
 
 /* ─── MOVEMENT CATALOG ────────────────────────────────────────
    phase  : earliest phase this may appear (0-4)
@@ -652,7 +652,8 @@ function fmtD(d){ if(!d) return '—'; return d.toLocaleDateString('en-US',{mont
 
 function phaseDates(){
   var s = D.settings;
-  var birth = parseD(s.birthDate) || parseD(s.dueDate);
+  /* Every phase date hangs off this — a missing one used to throw on every render */
+  var birth = parseD(s.birthDate) || parseD(s.dueDate) || parseD(fresh().settings.dueDate);
   var recWeeks = s.delivery === 'csection' ? 8 : 6;
   var p1End = addDays(birth, recWeeks*7);
   var p2End = addDays(p1End, 14);
@@ -1073,7 +1074,7 @@ function adaptiveTarget(cat, planned){
 }
 
 /* ═══ STREAK + BADGES ═════════════════════════════════════════ */
-/* weeks that hit budget — one missed day cannot break it */
+/* weeks with anything logged — one missed day cannot break it */
 function streakWeeks(){
   var n = 0, ws = weekStart();
   for(var i=0;i<80;i++){
@@ -1548,9 +1549,12 @@ function finishRun(partial){
     total++; var st = RUN.state[bi+'_'+ii]||{};
     if(st.done) done++;
     if(it.mid) moves.push(it.mid);
-    if(it.anchor && st.w){
+    /* An untouched weight box means she lifted what was prescribed — that
+       still counts. A box she deliberately cleared (st.w === null) does not. */
+    var w = st.w !== undefined ? st.w : (st.done ? it.wt : null);
+    if(it.anchor && w){
       if(!D.anchors[it.mid]) D.anchors[it.mid] = [];
-      D.anchors[it.mid].push({date:dkey(), w:st.w});
+      D.anchors[it.mid].push({date:dkey(), w:w});
     }
   }); });
   var isPartial = partial || done < total;
@@ -1615,10 +1619,15 @@ var DIST_KINDS = ['walk','run','cardio','swim'];
 function openLogSheet(presetKind){
   var kinds = LOGKINDS.filter(function(o){ return o.k!=='run' || D.settings.runUnlocked; });
   var html = '<div class="grab"></div><div class="sh-t">Log an activity</div>' +
-    '<div class="sh-s">Anything you did. It counts toward this week whether the app suggested it or not.</div>' +
+    '<div class="sh-s">Anything you did, today or a past day. It counts whether the app suggested it or not.</div>' +
     '<div class="fld"><label>What was it</label><div class="opts" id="lk-opts">' +
     kinds.map(function(o){ return '<button class="opt'+(o.k===presetKind?' on':'')+'" data-k="'+o.k+'" onclick="pickKind(this)">'+o.n+'</button>'; }).join('') +
     '</div></div>' +
+    '<div class="fld"><label>When</label><div class="opts" id="ld-opts">' +
+      '<button class="opt on" data-d="0" onclick="pickDay(this)">Today</button>' +
+      '<button class="opt" data-d="1" onclick="pickDay(this)">Yesterday</button>' +
+      '<button class="opt" data-d="pick" onclick="pickDay(this)">Earlier…</button>' +
+    '</div><input id="lg-date" type="date" max="'+dkey()+'" style="margin-top:8px" hidden onchange="window._ld=this.value||null"></div>' +
     '<div class="fld"><label>Name it (optional)</label><input id="lg-name" placeholder="e.g. prenatal yoga class"></div>' +
     '<div class="fld"><label>Minutes</label><input id="lg-mins" type="number" inputmode="numeric" placeholder="20"></div>' +
     '<div class="fld" id="lg-dist-fld" hidden><label>Distance (miles, optional)</label><input id="lg-dist" type="number" inputmode="decimal" step="0.1" placeholder="e.g. 2.1"></div>' +
@@ -1629,9 +1638,24 @@ function openLogSheet(presetKind){
     '<button class="btn" onclick="saveFreeLog()">Log it</button>' +
     '<div class="mini" style="text-align:center;margin-top:10px">This adjusts the rest of your week — it does not stack on top. Distance and heart rate are always optional.</div>';
   openSheet(html);
-  window._lk = presetKind || null; window._le = null;
+  window._lk = presetKind || null; window._le = null; window._ld = null;
   updateLogFieldVisibility();
 }
+/* Backfilling — she doesn't always get to the app the same day. null = today. */
+function pickDay(b){
+  Array.prototype.forEach.call(document.querySelectorAll('#ld-opts .opt'), function(x){ x.classList.remove('on'); });
+  b.classList.add('on');
+  var inp = document.getElementById('lg-date');
+  if(b.dataset.d === 'pick'){
+    inp.hidden = false;
+    if(!inp.value) inp.value = dkey(addDays(today(), -2));
+    window._ld = inp.value;
+  } else {
+    inp.hidden = true;
+    window._ld = b.dataset.d === '0' ? null : dkey(addDays(today(), -parseInt(b.dataset.d,10)));
+  }
+}
+function fmtLogDay(k){ return parseD(k).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}); }
 function updateLogFieldVisibility(){
   var show = DIST_KINDS.indexOf(window._lk) >= 0;
   document.getElementById('lg-dist-fld').hidden = !show;
@@ -1651,8 +1675,14 @@ function saveFreeLog(){
   var nm = (document.getElementById('lg-name').value||'').trim();
   var mn = parseInt(document.getElementById('lg-mins').value,10) || null;
   var kindName = (LOGKINDS.filter(function(o){return o.k===window._lk;})[0]||{}).n || 'Session';
-  var entry = {id:'f-'+Date.now(), date:dkey(), kind:window._lk, name: nm || kindName,
-              mins:mn, effort:window._le, moves:[], free:true, kids:D.settings.kids};
+  if(!document.getElementById('lg-date').hidden && !window._ld){ toast('Pick which day'); return; }
+  var date = window._ld || dkey();
+  if(date > dkey()){ toast('That day hasn’t happened yet'); return; }
+  var past = date !== dkey();
+  /* The kids chip describes right now, not whatever day she's backfilling */
+  var entry = {id:'f-'+Date.now(), date:date, kind:window._lk, name: nm || kindName,
+              mins:mn, effort:window._le, moves:[], free:true, kids:past ? false : D.settings.kids};
+  if(past) entry.backfilled = true;
   if(DIST_KINDS.indexOf(window._lk) >= 0){
     var dv = parseFloat(document.getElementById('lg-dist').value);
     var hv = parseInt(document.getElementById('lg-hr').value,10);
@@ -1661,7 +1691,9 @@ function saveFreeLog(){
   }
   D.log.push(entry);
   closeSheet();
-  postLog(entry, 'Logged — plan adjusted');
+  var thisWeek = parseD(date) >= weekStart();
+  postLog(entry, !past ? 'Logged — plan adjusted'
+    : 'Logged for ' + fmtLogDay(date) + (thisWeek ? ' — plan adjusted' : ''));
 }
 
 /* ═══ CONTEXT SHEETS ══════════════════════════════════════════ */
@@ -1741,7 +1773,11 @@ function renderPlan(){
 function renderLog(){
   var cols = {walk:'blue',run:'blue',strength:'green',cardio:'blue',mobility:'purple',floor:'tan',yoga:'purple',swim:'blue',other:'mauve'};
   var out = '';
-  var recent = D.log.slice().sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); }).slice(0,60);
+  /* Newest day first; within a day, most recently added first — D.log is
+     append-ordered, and backfilled entries land at the end of it. */
+  var recent = D.log.map(function(l,i){ return {l:l,i:i}; }).sort(function(a,b){
+    return (b.l.date||'').localeCompare(a.l.date||'') || b.i - a.i;
+  }).map(function(x){ return x.l; }).slice(0,60);
   if(!recent.length){
     out = '<div class="empty">Nothing logged yet.<br>A walk counts. Start there.</div>';
   } else {
@@ -1782,8 +1818,24 @@ function openLogDetail(id){
       '<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">'+esc(r[0])+'</div>' +
       '<div style="font-size:15px;margin-top:2px">'+esc(String(r[1]))+'</div></div>';
   });
-  html += '<button class="btn sec" style="margin-top:16px;border-color:#c1655f;color:#d98d88" onclick="confirmDeleteLog(\''+id+'\')">Delete this log</button>';
+  html += '<div class="fld" style="margin-top:16px"><label>Wrong day? Move it</label>' +
+    '<div style="display:flex;gap:8px"><input id="ld-move" type="date" max="'+dkey()+'" value="'+esc(String(l.date).slice(0,10))+'" style="flex:1">' +
+    '<button class="btn sec sm" style="flex:0 0 auto;padding:9px 16px" onclick="moveLogDate(\''+id+'\')">Move</button></div></div>';
+  html += '<button class="btn sec" style="border-color:#c1655f;color:#d98d88" onclick="confirmDeleteLog(\''+id+'\')">Delete this log</button>';
   openSheet(html);
+}
+function moveLogDate(id){
+  var l = D.log.filter(function(x){ return x.id===id; })[0];
+  if(!l){ closeSheet(); return; }
+  var v = document.getElementById('ld-move').value;
+  if(!v){ toast('Pick a day'); return; }
+  if(v > dkey()){ toast('That day hasn’t happened yet'); return; }
+  if(v === String(l.date).slice(0,10)){ closeSheet(); return; }
+  l.date = v;
+  save();
+  closeSheet();
+  toast('Moved to ' + fmtLogDay(v));
+  renderAll();
 }
 function confirmDeleteLog(id){
   var l = D.log.filter(function(x){ return x.id===id; })[0];
@@ -1802,7 +1854,6 @@ function deleteLogEntry(id){
   closeSheet();
   toast('Removed');
   renderAll();
-  if(document.getElementById('pg-log').classList.contains('active')) renderLog();
 }
 
 /* ═══ PROGRESS PAGE ═══════════════════════════════════════════ */
@@ -1810,7 +1861,7 @@ function renderProg(){
   var out = '';
   if(D.settings.streakOn){
     var sw = streakWeeks();
-    out += '<div class="streak"><div class="n">'+sw+'</div><div class="l">'+(sw===1?'week':'weeks')+' in a row hitting your budget</div>' +
+    out += '<div class="streak"><div class="n">'+sw+'</div><div class="l">'+(sw===1?'week':'weeks')+' in a row with something logged</div>' +
       '<div class="mini" style="margin-top:7px;color:var(--text3)">One missed day cannot break this. Only a fully empty week can.</div></div>';
   }
   var wk = logsInWeek(weekStart()).length;
@@ -1996,7 +2047,8 @@ function setDel(v, b){
   b.classList.add('on');
 }
 function saveDates(){
-  D.settings.dueDate = document.getElementById('d-due').value || null;
+  /* Due date can be changed but not cleared — the whole plan is worked out from it */
+  D.settings.dueDate = document.getElementById('d-due').value || D.settings.dueDate;
   D.settings.birthDate = document.getElementById('d-birth').value || null;
   D.settings.returnDate = document.getElementById('d-ret').value || null;
   save(); closeSheet(); renderAll(); toast('Dates updated');
@@ -2134,16 +2186,25 @@ document.getElementById('bb-slider').addEventListener('change', function(){
   save(); renderToday();
 });
 
-function renderAll(){ renderToday(); }
+/* Today always (it's behind every sheet), plus whichever tab she's looking at —
+   logging from the Log tab used to leave its own list stale until she navigated away. */
+function renderAll(){
+  renderToday();
+  if(document.getElementById('pg-log').classList.contains('active')) renderLog();
+  if(document.getElementById('pg-prog').classList.contains('active')) renderProg();
+  if(document.getElementById('pg-more').classList.contains('active')) renderMore();
+}
 
 /* ═══ WHAT'S NEW ══════════════════════════════════════════════ */
 function maybeShowWelcome(){
-  if(D.seenWelcome === BUILD) return false;
+  /* One-time 2.0 intro — keyed to "ever seen", not BUILD, so routine
+     version bumps don't replay stale release notes at her */
+  if(D.seenWelcome) return false;
   var html = '<div class="grab"></div><div class="sh-t">This app changed</div>' +
     '<div class="sh-s">Same app, rebuilt around what you told me. A few things worth knowing before you dig in:</div>' +
     '<div class="feat" style="margin:4px 0 14px">' +
       '<div style="background:var(--card2);border-radius:11px;padding:11px 13px"><b style="font-size:13.5px">The starting weights are lighter than before.</b><div style="font-size:12.5px;color:var(--text2);margin-top:3px;line-height:1.45">You said the old numbers looked too heavy. You were right — they are cut across the board, and P3 climbs slowly over six weeks from there.</div></div>' +
-      '<div style="background:var(--card2);border-radius:11px;padding:11px 13px;margin-top:1px"><b style="font-size:13.5px">Nothing is scripted anymore.</b><div style="font-size:12.5px;color:var(--text2);margin-top:3px;line-height:1.45">Tap <b>Did something else today?</b> any time — a walk, yoga, a hike. It counts, and the rest of your week adjusts around it.</div></div>' +
+      '<div style="background:var(--card2);border-radius:11px;padding:11px 13px;margin-top:1px"><b style="font-size:13.5px">Nothing is scripted anymore.</b><div style="font-size:12.5px;color:var(--text2);margin-top:3px;line-height:1.45">Tap <b>Did something else?</b> any time — a walk, yoga, a hike. It counts, and the rest of your week adjusts around it.</div></div>' +
       '<div style="background:var(--card2);border-radius:11px;padding:11px 13px;margin-top:1px"><b style="font-size:13.5px">Your old history is still here.</b><div style="font-size:12.5px;color:var(--text2);margin-top:3px;line-height:1.45">Past workouts carried over. Nothing was lost.</div></div>' +
     '</div>' +
     '<button class="btn" onclick="D.seenWelcome=BUILD;save();closeSheet()">Got it</button>';
