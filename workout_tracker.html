@@ -302,7 +302,7 @@ hr.sep{border:none;border-top:1px solid var(--border);margin:16px 0}
    Single file. No backend. Everything in localStorage.
    ═══════════════════════════════════════════════════════════════ */
 
-var BUILD = '2.4.0 · 2026-11-21';
+var BUILD = '2.4.1 · 2026-11-21';
 
 /* ─── MOVEMENT CATALOG ────────────────────────────────────────
    phase  : earliest phase this may appear (0-4)
@@ -1833,6 +1833,26 @@ function showImportSheet(){
     pickDay(btn);
   }
 }
+/* One-time explainer, shown once after the update that added import */
+function maybeShowGarminIntro(){
+  if(D.seenGarminIntro) return false;
+  var step = function(n, t, s){
+    return '<div style="background:var(--card2);border-radius:11px;padding:11px 13px;margin-top:1px"><b style="font-size:13.5px">'+n+'. '+t+'</b>' +
+      '<div style="font-size:12.5px;color:var(--text2);margin-top:3px;line-height:1.45">'+s+'</div></div>';
+  };
+  var html = '<div class="grab"></div><div class="sh-t">New: bring in your Garmin activities</div>' +
+    '<div class="sh-s">No more typing in walks and rides your watch already recorded.</div>' +
+    '<div class="feat" style="margin:4px 0 14px">' +
+      step(1, 'Share it from Garmin Connect', 'Open the activity, tap <b>Share</b>, pick the image, then choose <b>BK Fit</b>. Or tap <b>Did something else?</b> → <b>Import a Garmin screenshot</b>.') +
+      step(2, 'Check it and log it', 'The app reads the time, distance and heart rate for you. Fix anything that looks off, then tap <b>Log it</b>.') +
+      step(3, 'Already logged it? No problem', 'If you tapped Walk earlier that day, it asks whether it’s the same one and just adds the details — it never counts twice.') +
+    '</div>' +
+    (D.settings.pairCode ? '' : '<div class="mini" style="margin-bottom:10px">First time only: Nick will give you a short import code to enter.</div>') +
+    '<button class="btn" onclick="D.seenGarminIntro=true;save();closeSheet()'+(D.settings.pairCode?'':';setPairCode()')+'">'+(D.settings.pairCode?'Got it':'Enter the code')+'</button>' +
+    (D.settings.pairCode ? '' : '<button class="btn sec" style="margin-top:9px" onclick="D.seenGarminIntro=true;save();closeSheet()">Later</button>');
+  openSheet(html);
+  return true;
+}
 /* Arriving from the Android share sheet (see sw.js) */
 async function checkSharedImage(){
   if(location.search.indexOf('shared=1') < 0) return;
@@ -2369,6 +2389,9 @@ renderToday();
 var welcomed = maybeShowWelcome();
 var sharedIn = location.search.indexOf('shared=1') >= 0;
 if(!welcomed) checkSharedImage();
+/* Sharing in means she already knows the feature; mark it seen */
+if(sharedIn) D.seenGarminIntro = true;
+if(!welcomed && !sharedIn && !D.active) welcomed = maybeShowGarminIntro();
 if(D.active && !welcomed && !sharedIn){
   setTimeout(function(){
     var s = D.active.sess;

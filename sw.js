@@ -1,5 +1,5 @@
 /* BK Fit service worker — bump CACHE on every deploy */
-var CACHE = 'bkfit-v2.4.0';
+var CACHE = 'bkfit-v2.4.1';
 var SHELL = ['./', './workout_tracker.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', function(e){

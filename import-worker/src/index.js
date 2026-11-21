@@ -3,7 +3,7 @@
    Returns the activity fields Haiku read off the card. Holds no data. */
 import Anthropic from '@anthropic-ai/sdk';
 
-const ALLOWED_ORIGINS = ['https://goondoc08.github.io', 'http://localhost:8080', 'http://127.0.0.1:8080'];
+const ALLOWED_ORIGINS = ['https://bkfit.halfedge.dev', 'https://goondoc08.github.io','http://localhost:8080', 'http://127.0.0.1:8080'];
 const MAX_B64 = 3_000_000; // ~2.2 MB image; the app downsizes well below this
 
 const nullable = (t) => ({ type: [t, 'null'] });
