@@ -302,7 +302,7 @@ hr.sep{border:none;border-top:1px solid var(--border);margin:16px 0}
    Single file. No backend. Everything in localStorage.
    ═══════════════════════════════════════════════════════════════ */
 
-var BUILD = '2.3.0 · 2026-11-03';
+var BUILD = '2.4.0 · 2026-11-21';
 
 /* ─── MOVEMENT CATALOG ────────────────────────────────────────
    phase  : earliest phase this may appear (0-4)
@@ -1616,10 +1616,14 @@ var LOGKINDS = [
    never required to log something. */
 var DIST_KINDS = ['walk','run','cardio','swim'];
 
-function openLogSheet(presetKind){
-  var kinds = LOGKINDS.filter(function(o){ return o.k!=='run' || D.settings.runUnlocked; });
-  var html = '<div class="grab"></div><div class="sh-t">Log an activity</div>' +
-    '<div class="sh-s">Anything you did, today or a past day. It counts whether the app suggested it or not.</div>' +
+function openLogSheet(presetKind, imported){
+  /* A Garmin run she actually did is shown even before the Running Unlock */
+  var kinds = LOGKINDS.filter(function(o){ return o.k!=='run' || D.settings.runUnlocked || o.k===presetKind; });
+  var html = '<div class="grab"></div><div class="sh-t">'+(imported?'Check your Garmin activity':'Log an activity')+'</div>' +
+    (imported
+      ? '<div class="sh-s">Read from your screenshot. Fix anything that looks off, then log it.</div>'
+      : '<div class="sh-s">Anything you did, today or a past day. It counts whether the app suggested it or not.</div>' +
+        '<button class="btn sec" style="margin-bottom:12px" onclick="pickGarminImage()">Import a Garmin screenshot</button>') +
     '<div class="fld"><label>What was it</label><div class="opts" id="lk-opts">' +
     kinds.map(function(o){ return '<button class="opt'+(o.k===presetKind?' on':'')+'" data-k="'+o.k+'" onclick="pickKind(this)">'+o.n+'</button>'; }).join('') +
     '</div></div>' +
@@ -1639,6 +1643,7 @@ function openLogSheet(presetKind){
     '<div class="mini" style="text-align:center;margin-top:10px">This adjusts the rest of your week — it does not stack on top. Distance and heart rate are always optional.</div>';
   openSheet(html);
   window._lk = presetKind || null; window._le = null; window._ld = null;
+  window._imp = imported || null;
   updateLogFieldVisibility();
 }
 /* Backfilling — she doesn't always get to the app the same day. null = today. */
@@ -1683,6 +1688,13 @@ function saveFreeLog(){
   var entry = {id:'f-'+Date.now(), date:date, kind:window._lk, name: nm || kindName,
               mins:mn, effort:window._le, moves:[], free:true, kids:past ? false : D.settings.kids};
   if(past) entry.backfilled = true;
+  var imp = window._imp;
+  if(imp){
+    entry.id = 'g-'+Date.now(); entry.source = 'garmin'; entry.gkey = imp.start ? date+'|'+imp.start : null;
+    if(imp.start) entry.start = imp.start;
+    if(imp.kcal) entry.kcal = imp.kcal;
+    window._imp = null;
+  }
   if(DIST_KINDS.indexOf(window._lk) >= 0){
     var dv = parseFloat(document.getElementById('lg-dist').value);
     var hv = parseInt(document.getElementById('lg-hr').value,10);
@@ -1694,6 +1706,144 @@ function saveFreeLog(){
   var thisWeek = parseD(date) >= weekStart();
   postLog(entry, !past ? 'Logged — plan adjusted'
     : 'Logged for ' + fmtLogDay(date) + (thisWeek ? ' — plan adjusted' : ''));
+}
+
+/* ═══ GARMIN SCREENSHOT IMPORT ════════════════════════════════
+   She shares a Garmin Connect card (or picks a screenshot); a small
+   Cloudflare Worker asks Haiku to read it; she confirms in the normal
+   log sheet. The pairing code lives only on this phone, never in the repo. */
+var IMPORT_URL = 'https://bkfit-import.nicholas-matula.workers.dev';
+var IMP_KIND = {walking:'walk', hiking:'walk', running:'run', cycling:'cardio', cardio:'cardio',
+  hiit:'cardio', stairs:'cardio', swimming:'swim', strength:'strength', yoga:'yoga', other:'other'};
+var IMP_NAME = {walking:'Walk', hiking:'Hike', running:'Run', cycling:'Bike ride', swimming:'Swim',
+  strength:'Strength', yoga:'Yoga', hiit:'HIIT', stairs:'Stairs', cardio:'Cardio', other:'Activity'};
+
+function pickGarminImage(){
+  var inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = 'image/*';
+  inp.onchange = function(){ if(inp.files && inp.files[0]) importGarminImage(inp.files[0]); };
+  inp.click();
+}
+function setPairCode(){
+  var html = '<div class="grab"></div><div class="sh-t">Garmin import code</div>' +
+    '<div class="sh-s">Nick gives you this once. It lets the app read your Garmin screenshots.</div>' +
+    '<div class="fld"><input id="pair-in" autocomplete="off" value="'+esc(D.settings.pairCode||'')+'"></div>' +
+    '<button class="btn" onclick="D.settings.pairCode=(document.getElementById(\'pair-in\').value||\'\').trim()||null;save();closeSheet();renderMore();toast(\'Saved\')">Save</button>';
+  openSheet(html);
+}
+/* Phone screenshots are big; ~1200px is plenty to read and keeps the call cheap. */
+function shrinkImage(blob){
+  return new Promise(function(res, rej){
+    var url = URL.createObjectURL(blob), img = new Image();
+    img.onload = function(){
+      var s = Math.min(1, 1200 / Math.max(img.width, img.height));
+      var c = document.createElement('canvas');
+      c.width = Math.round(img.width*s); c.height = Math.round(img.height*s);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      res(c.toDataURL('image/jpeg', 0.85).split(',')[1]);
+    };
+    img.onerror = function(){ URL.revokeObjectURL(url); rej(new Error('img')); };
+    img.src = url;
+  });
+}
+/* The card has no year: this year, unless that would be in the future. */
+function impDate(m, d){
+  if(!m || !d) return null;
+  var y = new Date().getFullYear(), k = y+'-'+pad(m)+'-'+pad(d);
+  if(k > dkey()) k = (y-1)+'-'+pad(m)+'-'+pad(d);
+  return k;
+}
+async function importGarminImage(blob){
+  if(!D.settings.pairCode){ setPairCode(); toast('Add the import code first'); return; }
+  openSheet('<div class="grab"></div><div class="sh-t">Reading your activity…</div><div class="sh-s">A few seconds.</div>');
+  var a;
+  try {
+    var b64 = await shrinkImage(blob);
+    var r = await fetch(IMPORT_URL, {method:'POST',
+      headers:{'Content-Type':'application/json','X-Pair-Code':D.settings.pairCode},
+      body: JSON.stringify({image:b64, mediaType:'image/jpeg'})});
+    if(r.status === 401){ closeSheet(); setPairCode(); toast('That import code didn’t work'); return; }
+    if(!r.ok) throw new Error('http '+r.status);
+    a = (await r.json()).activity;
+  } catch(e){
+    closeSheet(); toast('Couldn’t read it — check your signal, or log it by hand'); return;
+  }
+  if(!a || !a.is_activity){ closeSheet(); toast('That doesn’t look like an activity screenshot'); return; }
+  var date = impDate(a.month, a.day);
+  var start = a.start_time && /^\d{1,2}:\d{2}$/.test(a.start_time) ? a.start_time.padStart(5,'0') : null;
+  if(date && start && D.log.some(function(l){ return l.gkey === date+'|'+start; })){
+    closeSheet(); toast('Already logged — '+fmtLogDay(date)); return;
+  }
+  var kind = IMP_KIND[a.activity_type] || 'other';
+  window._pendImp = {a:a, date:date, start:start, kind:kind};
+  /* She may already have logged this by hand (Walk card, a generated
+     session, free-log). Same day + same kind without Garmin data = ask,
+     so one walk never counts twice in the budget. */
+  var day = date || dkey();
+  var cands = D.log.filter(function(l){ return l.date===day && l.kind===kind && !l.gkey; });
+  if(cands.length){
+    var html = '<div class="grab"></div><div class="sh-t">Already logged this one?</div>' +
+      '<div class="sh-s">Garmin: '+esc(IMP_NAME[a.activity_type]||'Activity')+
+        (start?' at '+fmtClock(start):'')+(a.duration_seconds?' · '+Math.round(a.duration_seconds/60)+' min':'')+
+        (a.distance_miles?' · '+trim(a.distance_miles)+' mi':'')+' — '+fmtLogDay(day)+'</div>';
+    cands.forEach(function(l){
+      html += '<button class="rowbtn" onclick="mergeGarmin(\''+l.id+'\')"><div><div>Yes — add Garmin details to '+esc(l.name||'this')+'</div>' +
+        '<div class="sub">'+(l.mins?l.mins+' min':'no time logged')+(l.dist?' · '+trim(l.dist)+' mi':'')+'</div></div><span class="ar">›</span></button>';
+    });
+    html += '<button class="btn sec" style="margin-top:9px" onclick="showImportSheet()">No, it’s a separate one</button>';
+    openSheet(html);
+    return;
+  }
+  showImportSheet();
+}
+function fmtClock(hm){
+  var p = hm.split(':'), h = +p[0];
+  return (h%12||12)+':'+p[1]+(h<12?' am':' pm');
+}
+function mergeGarmin(id){
+  var p = window._pendImp, l = D.log.filter(function(x){ return x.id===id; })[0];
+  if(!p || !l){ closeSheet(); return; }
+  var a = p.a;
+  /* Garmin's numbers are measured, so they win over a hand-typed guess */
+  if(a.duration_seconds) l.mins = Math.max(1, Math.round(a.duration_seconds/60));
+  if(a.distance_miles && DIST_KINDS.indexOf(l.kind)>=0) l.dist = Math.round(a.distance_miles*100)/100;
+  if(a.avg_hr && DIST_KINDS.indexOf(l.kind)>=0) l.hr = a.avg_hr;
+  if(a.calories) l.kcal = a.calories;
+  if(p.start){ l.start = p.start; l.gkey = l.date+'|'+p.start; }
+  l.source = 'garmin';
+  window._pendImp = null;
+  closeSheet();
+  postLog(l, 'Garmin details added — counted once');
+}
+function showImportSheet(){
+  var p = window._pendImp; if(!p) return;
+  var a = p.a, date = p.date, start = p.start, kind = p.kind;
+  window._pendImp = null;
+  openLogSheet(kind, {start:start, kcal:a.calories||null});
+  /* Prefill the ordinary sheet so she confirms exactly what will be saved */
+  document.getElementById('lg-name').value = a.title || IMP_NAME[a.activity_type] || '';
+  if(a.duration_seconds) document.getElementById('lg-mins').value = Math.max(1, Math.round(a.duration_seconds/60));
+  if(a.distance_miles) document.getElementById('lg-dist').value = Math.round(a.distance_miles*100)/100;
+  if(a.avg_hr) document.getElementById('lg-hr').value = a.avg_hr;
+  if(date && date !== dkey()){
+    var yest = dkey(addDays(today(), -1));
+    var btn = document.querySelector('#ld-opts .opt[data-d="'+(date===yest?'1':'pick')+'"]');
+    if(date !== yest) document.getElementById('lg-date').value = date;
+    pickDay(btn);
+  }
+}
+/* Arriving from the Android share sheet (see sw.js) */
+async function checkSharedImage(){
+  if(location.search.indexOf('shared=1') < 0) return;
+  history.replaceState(null, '', location.pathname);
+  try {
+    var c = await caches.open('bkfit-share');
+    var hit = await c.match('shared-image');
+    if(!hit){ toast('Nothing came through — try sharing again'); return; }
+    await c.delete('shared-image');
+    importGarminImage(await hit.blob());
+  } catch(e){ toast('Couldn’t open the shared image'); }
 }
 
 /* ═══ CONTEXT SHEETS ══════════════════════════════════════════ */
@@ -2005,6 +2155,7 @@ function renderMore(){
   out += '<div class="card"><div class="card-title">Data</div>';
   out += row('Export backup', 'Save everything to a file', 'exportData()');
   out += row('Import backup', 'Restore from a file', 'importData()');
+  out += row('Garmin import code', s.pairCode ? 'Set — share Garmin activities to BK Fit' : 'Not set', 'setPairCode()');
   out += '<div class="mini" style="margin-top:9px">There is no cloud. This phone is the only copy — export now and then. <b>Never clear site data</b>, it wipes this and your other apps.</div>';
   out += '</div>';
 
@@ -2216,7 +2367,9 @@ function maybeShowWelcome(){
 load();
 renderToday();
 var welcomed = maybeShowWelcome();
-if(D.active && !welcomed){
+var sharedIn = location.search.indexOf('shared=1') >= 0;
+if(!welcomed) checkSharedImage();
+if(D.active && !welcomed && !sharedIn){
   setTimeout(function(){
     var s = D.active.sess;
     openSheet('<div class="grab"></div><div class="sh-t">Pick up where you left off?</div>' +
