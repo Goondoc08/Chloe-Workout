@@ -302,7 +302,7 @@ hr.sep{border:none;border-top:1px solid var(--border);margin:16px 0}
    Single file. No backend. Everything in localStorage.
    ═══════════════════════════════════════════════════════════════ */
 
-var BUILD = '2.4.1 · 2026-11-21';
+var BUILD = '2.5.0 · 2026-11-23';
 
 /* ─── MOVEMENT CATALOG ────────────────────────────────────────
    phase  : earliest phase this may appear (0-4)
@@ -1833,6 +1833,155 @@ function showImportSheet(){
     pickDay(btn);
   }
 }
+/* ═══ EXPORT FOR CLAUDE ═══════════════════════════════════════
+   A readable summary she shares into her own Claude chat/project for
+   feedback. Text, not JSON; leaves out the import code and contact email. */
+var EXP_KIND = {walk:'Walk',run:'Run',strength:'Strength',cardio:'Cardio',yoga:'Yoga',
+  mobility:'Mobility',swim:'Swim',floor:'Pelvic floor',other:'Other'};
+function buildExport(weeks){
+  var s = D.settings, pd = phaseDates(), ph = phaseObj(), L = [];
+  var from = weeks ? addDays(weekStart(), -7*(weeks-1)) : null;
+  var inRange = function(k){ return !from || parseD(k) >= from; };
+  var dLong = function(k){ return parseD(k).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}); };
+
+  L.push('# BK Fit export — ' + new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}));
+  L.push('Range: ' + (weeks ? 'last '+weeks+' weeks (from '+dLong(dkey(from))+')' : 'everything logged'));
+  L.push('');
+  L.push('## Where I am');
+  L.push('- Phase: ' + ph.code + ' ' + ph.n + ' — ' + ph.w + (s.phasePin!==null && s.phasePin!==undefined ? ' (pinned by me)' : ' (following the calendar)'));
+  if(pd.born){
+    L.push('- Baby born ' + fmtD(pd.birth) + ' (' + (s.delivery==='csection'?'C-section':'vaginal') + ') — ' + Math.floor(daysBetween(pd.birth, today())/7) + ' weeks postpartum');
+  } else {
+    L.push('- Pregnant, due ' + fmtD(parseD(s.dueDate)) + ' (on light duty)');
+  }
+  if(s.returnDate) L.push('- Planned return to duty: ' + fmtD(parseD(s.returnDate)));
+  L.push('- Running: ' + (s.runUnlocked ? 'unlocked' : 'still locked (needs the self-test)'));
+  var gear = Object.keys(s.gear||{}).filter(function(g){ return s.gear[g]; });
+  L.push('- Home kit: ' + (gear.length ? gear.join(', ') : 'none') + '. Usual venue: ' + venueName());
+  L.push('- Week streak (weeks with anything logged): ' + streakWeeks());
+  L.push('');
+
+  L.push('## This week\'s budget (target / done)');
+  var bs = budgetState();
+  Object.keys(bs).forEach(function(c){ if(bs[c].target) L.push('- ' + c + ': ' + bs[c].done + ' / ' + bs[c].target); });
+  L.push('');
+
+  L.push('## Week by week');
+  var logs = D.log.filter(function(l){ return l.date && inRange(l.date); })
+    .slice().sort(function(a,b){ return (a.date+(a.start||'')).localeCompare(b.date+(b.start||'')); });
+  if(!logs.length) L.push('(nothing logged in this range)');
+  var byWeek = {};
+  logs.forEach(function(l){ var k = dkey(weekStart(parseD(l.date))); (byWeek[k] = byWeek[k] || []).push(l); });
+  Object.keys(byWeek).sort().forEach(function(wk){
+    var ls = byWeek[wk], tally = {}, floors = 0;
+    ls.forEach(function(l){ var c = credits(l); for(var k in c) tally[k] = (tally[k]||0) + c[k]; });
+    L.push('');
+    L.push('### Week of ' + dLong(wk) + ' — ' + Object.keys(tally).map(function(k){ return k+' '+trim(tally[k]); }).join(', '));
+    ls.forEach(function(l){
+      /* Daily pelvic floor would drown everything else — one line per week */
+      if(l.kind === 'floor'){ floors++; return; }
+      var bits = [dLong(l.date) + (l.start ? ' ' + fmtClock(l.start) : ''), EXP_KIND[l.kind] || l.kind];
+      if(l.name && l.name !== EXP_KIND[l.kind]) bits.push('"' + l.name + '"');
+      if(l.mins) bits.push(l.mins + ' min');
+      if(l.dist) bits.push((Math.round(l.dist*100)/100) + ' mi' + (l.mins ? ' (' + fmtPace(l.mins/l.dist) + ')' : ''));
+      if(l.hr) bits.push('avg HR ' + l.hr);
+      if(l.kcal) bits.push(l.kcal + ' cal');
+      if(l.effort) bits.push('felt ' + l.effort);
+      if(l.partial) bits.push('partial (' + (l.detail || 'not all done') + ')');
+      if(l.kids) bits.push('kids around');
+      if(l.source === 'garmin') bits.push('from Garmin');
+      if(l.moves && l.moves.length){
+        bits.push('moves: ' + l.moves.map(function(id){ var m = byId(id); return m ? m.n : id; }).join(', '));
+      }
+      L.push('- ' + bits.join(' · '));
+    });
+    if(floors) L.push('- Pelvic floor sessions: ' + floors);
+  });
+  L.push('');
+
+  var anchorIds = Object.keys(D.anchors || {});
+  if(anchorIds.length){
+    L.push('## Strength loads (lb per hand unless noted)');
+    anchorIds.forEach(function(id){
+      var h = D.anchors[id] || [], m = byId(id);
+      var rec = h.filter(function(x){ return inRange(x.date); });
+      if(!h.length) return;
+      var last = h[h.length-1];
+      L.push('- ' + (m ? m.n : id) + ': now ' + last.w + ' (' + dLong(last.date) + ')' +
+        (rec.length > 1 ? ', ' + rec.map(function(x){ return x.w; }).join(' → ') + ' in this range' : ''));
+    });
+    L.push('');
+  }
+
+  var ped = TREND_KINDS.map(function(k){
+    var h = cardioHistory(k); if(!h.length) return null;
+    return '- ' + (k==='run'?'Running':'Walking') + ': ' + h.length + ' with distance in the last ' + TREND_WINDOW_DAYS +
+      ' days, average pace ' + fmtPace(cardioAvgPace(h)) + (D.bestPace && D.bestPace[k] ? ', best ' + fmtPace(D.bestPace[k]) : '');
+  }).filter(Boolean);
+  if(ped.length){ L.push('## Pace'); ped.forEach(function(x){ L.push(x); }); L.push(''); }
+
+  var rd = Object.keys(D.readiness || {}).filter(inRange).sort();
+  rd = rd.filter(function(k){ var v = D.readiness[k]; return v && (v.bb || v.feel); });
+  if(rd.length){
+    L.push('## Daily check-ins (Garmin Body Battery, how I felt)');
+    rd.forEach(function(k){ var v = D.readiness[k];
+      L.push('- ' + dLong(k) + ': ' + [v.bb ? 'BB ' + v.bb : '', v.feel || ''].filter(Boolean).join(', ')); });
+    L.push('');
+  }
+
+  var benchDefs = [].concat(BENCH_HOME, BENCH_STATION);
+  var bn = (D.bench || []).filter(function(b){ return inRange(b.date); });
+  if(bn.length){
+    L.push('## Benchmark tests');
+    bn.forEach(function(b){ var d = benchDefs.filter(function(x){ return x.id===b.testId; })[0];
+      L.push('- ' + dLong(b.date) + ': ' + (d ? d.n : b.testId) + ' — ' + b.v + (d && d.unit ? ' ' + d.unit : '')); });
+    L.push('');
+  }
+
+  var sym = (D.symptomChecks || []).filter(function(c){ return inRange(c.date); });
+  if(sym.length){
+    L.push('## Pelvic floor symptom checks');
+    sym.forEach(function(c){ L.push('- ' + dLong(c.date) + ': ' + (c.any ? 'flagged ' + c.count + ' symptom(s)' : 'all clear')); });
+    L.push('');
+  }
+
+  L.push('---');
+  L.push('Please look at how my training is going and give me feedback.');
+  return L.join('\n');
+}
+function openExport(){
+  window._expW = window._expW === undefined ? 4 : window._expW;
+  var opt = function(w, label){
+    return '<button class="opt'+(window._expW===w?' on':'')+'" onclick="window._expW='+w+';openExport()">'+label+'</button>';
+  };
+  var html = '<div class="grab"></div><div class="sh-t">Get feedback from Claude</div>' +
+    '<div class="sh-s">Makes a summary of your training to share into your Claude app — best into your BK Fit coach project.</div>' +
+    '<div class="fld"><label>How far back</label><div class="opts">' + opt(4,'4 weeks') + opt(12,'12 weeks') + opt(0,'Everything') + '</div></div>' +
+    '<div class="mini" style="margin-bottom:10px">Nothing leaves your phone until you share it.</div>' +
+    '<button class="btn" onclick="shareExport()">Share to Claude</button>' +
+    '<button class="btn sec" style="margin-top:9px" onclick="copyExport()">Copy instead</button>';
+  openSheet(html);
+}
+function shareExport(){
+  var txt = buildExport(window._expW);
+  if(navigator.share){
+    navigator.share({title:'BK Fit export', text:txt}).then(function(){ closeSheet(); })
+      .catch(function(e){ if(e && e.name !== 'AbortError') copyExport(); });
+  } else copyExport();
+}
+function copyExport(){
+  var txt = buildExport(window._expW);
+  var done = function(){ closeSheet(); toast('Copied — paste it into Claude'); };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(txt).then(done, function(){ showExportText(txt); });
+  } else showExportText(txt);
+}
+/* Last resort: let her long-press and copy it herself */
+function showExportText(txt){
+  openSheet('<div class="grab"></div><div class="sh-t">Copy this into Claude</div>' +
+    '<textarea readonly style="width:100%;height:50vh;font-size:12px">' + esc(txt) + '</textarea>');
+}
+
 /* One-time explainer, shown once after the update that added import */
 function maybeShowGarminIntro(){
   if(D.seenGarminIntro) return false;
@@ -2175,6 +2324,7 @@ function renderMore(){
   out += '<div class="card"><div class="card-title">Data</div>';
   out += row('Export backup', 'Save everything to a file', 'exportData()');
   out += row('Import backup', 'Restore from a file', 'importData()');
+  out += row('Get feedback from Claude', 'Share a summary of your training', 'openExport()');
   out += row('Garmin import code', s.pairCode ? 'Set — share Garmin activities to BK Fit' : 'Not set', 'setPairCode()');
   out += '<div class="mini" style="margin-top:9px">There is no cloud. This phone is the only copy — export now and then. <b>Never clear site data</b>, it wipes this and your other apps.</div>';
   out += '</div>';
